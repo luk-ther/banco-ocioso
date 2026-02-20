@@ -667,7 +667,7 @@ textarea:focus {
   max-height: 56px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: linear-gradient(135deg, var(--brand), #00b6ff 50%, var(--brand-2));
+  background: linear-gradient(170deg, #131722, #0f1117);
   box-shadow: var(--shadow);
   padding: 0;
   opacity: 0;
@@ -680,16 +680,30 @@ textarea:focus {
     width 0.28s ease, max-height 0.28s ease, border-radius 0.28s ease, padding 0.28s ease, background 0.28s ease;
 }
 
+.support-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, var(--brand), #00b6ff 50%, var(--brand-2));
+  opacity: 1;
+  transition: opacity 0.28s ease;
+  pointer-events: none;
+}
+
 .support-panel.is-open {
   width: min(360px, calc(100vw - 1.4rem));
   max-height: 640px;
   border-radius: 16px;
-  background: linear-gradient(170deg, #131722, #0f1117);
   padding: 0.9rem;
   opacity: 1;
   transform: scale(1);
   pointer-events: auto;
   visibility: visible;
+}
+
+.support-panel.is-open::before {
+  opacity: 0;
 }
 
 .support-head {
