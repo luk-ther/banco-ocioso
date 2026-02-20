@@ -4,8 +4,9 @@
     currency: "BRL",
   }).format(value);
 
-const API_BASE = "/api";
-const TOKEN_STORAGE_KEY = "banco_ocioso_auth_token";
+const USERS_STORAGE_KEY = "banco_ocioso_users_v1";
+const SESSION_STORAGE_KEY = "banco_ocioso_session_v1";
+const VAULTS_PREFIX = "banco_ocioso_vaults_user_";
 
 const revealNodes = document.querySelectorAll(".reveal");
 const rulesCheckbox = document.getElementById("confirmRules");
@@ -25,7 +26,6 @@ const registerForm = document.getElementById("registerForm");
 const logoutBtn = document.getElementById("logoutBtn");
 
 const vaults = [];
-let authToken = localStorage.getItem(TOKEN_STORAGE_KEY) || "";
 let currentUser = null;
 
 const observer = new IntersectionObserver(
@@ -43,20 +43,13 @@ revealNodes.forEach((node) => observer.observe(node));
 setupShortcutScroll();
 setupAuthUI();
 setupVaultHandlers();
-
 init();
 
-async function init() {
-  if (authToken) {
-    try {
-      const me = await apiRequest("/auth/me", { method: "GET" });
-      currentUser = me.user;
-      await loadVaultsFromApi();
-    } catch (_) {
-      clearSession();
-    }
+function init() {
+  restoreSession();
+  if (currentUser) {
+    loadVaultsForCurrentUser();
   }
-
   updateAuthUI();
   renderVaults();
   updateVaultAccessState();
@@ -66,40 +59,43 @@ function setupAuthUI() {
   tabLogin.addEventListener("click", () => toggleAuthTab("login"));
   tabRegister.addEventListener("click", () => toggleAuthTab("register"));
 
-  loginForm.addEventListener("submit", async (event) => {
+  loginForm.addEventListener("submit", (event) => {
     event.preventDefault();
 
-    const email = document.getElementById("loginEmail").value.trim();
-    const password = document.getElementById("loginPassword").value;
+    const email = String(document.getElementById("loginEmail").value || "")
+      .trim()
+      .toLowerCase();
+    const password = String(document.getElementById("loginPassword").value || "");
 
     if (!email || !password) {
       setAuthError("Preencha e-mail e senha para entrar.");
       return;
     }
 
-    try {
-      const result = await apiRequest("/auth/login", {
-        method: "POST",
-        body: { email, password },
-        auth: false,
-      });
-      startSession(result.token, result.user);
-      setAuthMessage("Login realizado com sucesso.");
-      await loadVaultsFromApi();
-      renderVaults();
-      updateVaultAccessState();
-      loginForm.reset();
-    } catch (error) {
-      setAuthError(error.message);
+    const users = loadUsers();
+    const user = users.find((item) => item.email === email && item.password === password);
+
+    if (!user) {
+      setAuthError("Credenciais invalidas.");
+      return;
     }
+
+    startSession(user);
+    loadVaultsForCurrentUser();
+    setAuthMessage("Login realizado com sucesso.");
+    loginForm.reset();
+    renderVaults();
+    updateVaultAccessState();
   });
 
-  registerForm.addEventListener("submit", async (event) => {
+  registerForm.addEventListener("submit", (event) => {
     event.preventDefault();
 
-    const name = document.getElementById("registerName").value.trim();
-    const email = document.getElementById("registerEmail").value.trim();
-    const password = document.getElementById("registerPassword").value;
+    const name = String(document.getElementById("registerName").value || "").trim();
+    const email = String(document.getElementById("registerEmail").value || "")
+      .trim()
+      .toLowerCase();
+    const password = String(document.getElementById("registerPassword").value || "");
 
     if (!name || !email || !password) {
       setAuthError("Preencha nome, e-mail e senha para criar sua conta.");
@@ -111,21 +107,29 @@ function setupAuthUI() {
       return;
     }
 
-    try {
-      const result = await apiRequest("/auth/register", {
-        method: "POST",
-        body: { name, email, password },
-        auth: false,
-      });
-      startSession(result.token, result.user);
-      setAuthMessage("Conta criada com sucesso. Voce ja esta conectado.");
-      await loadVaultsFromApi();
-      renderVaults();
-      updateVaultAccessState();
-      registerForm.reset();
-    } catch (error) {
-      setAuthError(error.message);
+    const users = loadUsers();
+    if (users.some((item) => item.email === email)) {
+      setAuthError("Ja existe uma conta local com este e-mail.");
+      return;
     }
+
+    const user = {
+      id: crypto.randomUUID(),
+      name,
+      email,
+      password,
+    };
+
+    users.push(user);
+    saveUsers(users);
+
+    startSession(user);
+    saveVaultsForCurrentUser([]);
+    loadVaultsForCurrentUser();
+    setAuthMessage("Conta criada com sucesso neste navegador.");
+    registerForm.reset();
+    renderVaults();
+    updateVaultAccessState();
   });
 
   logoutBtn.addEventListener("click", () => {
@@ -149,7 +153,7 @@ function setupVaultHandlers() {
       : "Confirme as instrucoes para liberar a criacao de cofre.";
   });
 
-  vaultForm.addEventListener("submit", async (event) => {
+  vaultForm.addEventListener("submit", (event) => {
     event.preventDefault();
 
     if (!currentUser) {
@@ -200,21 +204,16 @@ function setupVaultHandlers() {
     };
 
     handleGoalTransition(vault, 0);
+    vaults.unshift(vault);
+    persistVaults();
 
-    try {
-      const created = await createVaultOnApi(vault);
-      vaults.unshift(created);
-
-      vaultForm.reset();
-      document.getElementById("challengeMode").checked = true;
-      document.getElementById("lockedMode").checked = true;
-      updateVaultAccessState();
-      feedback.classList.remove("error");
-      feedback.textContent = `Cofre "${created.name}" criado com sucesso.`;
-      renderVaults();
-    } catch (error) {
-      showError(error.message);
-    }
+    vaultForm.reset();
+    document.getElementById("challengeMode").checked = true;
+    document.getElementById("lockedMode").checked = true;
+    updateVaultAccessState();
+    feedback.classList.remove("error");
+    feedback.textContent = `Cofre "${vault.name}" criado com sucesso.`;
+    renderVaults();
   });
 }
 
@@ -234,9 +233,7 @@ function renderVaults() {
   vaultList.innerHTML = vaults
     .map((vault) => {
       const isGoalReached = vault.hiddenBalance >= vault.goal;
-      const isCelebrating =
-        Boolean(vault.celebrateUntil) &&
-        new Date(vault.celebrateUntil).getTime() > now;
+      const isCelebrating = Boolean(vault.celebrateUntil) && new Date(vault.celebrateUntil).getTime() > now;
       const progress = getProgress(vault.hiddenBalance, vault.goal);
       const blocksDone = Math.max(0, Math.min(10, Math.round(progress / 10)));
       const status = getStatusByProgress(progress);
@@ -281,13 +278,9 @@ function renderVaults() {
         <div class="secret">
           <p>
             Valor guardado neste cofre:
-            <strong>${isGoalReached ? formatBRL(vault.hiddenBalance) : "R$••••••"}</strong>
+            <strong>${isGoalReached ? formatBRL(vault.hiddenBalance) : "••••••••"}</strong>
           </p>
-          ${
-            isGoalReached
-              ? "<p class=\"goal-unlock\">Meta concluida: valor liberado automaticamente.</p>"
-              : ""
-          }
+          ${isGoalReached ? "<p class=\"goal-unlock\">Meta concluida: valor liberado automaticamente.</p>" : ""}
         </div>
 
         ${challengeMarkup}
@@ -308,7 +301,7 @@ function renderVaults() {
 function attachVaultEvents() {
   const depositForms = vaultList.querySelectorAll(".deposit-form");
   depositForms.forEach((form) => {
-    form.addEventListener("submit", async (event) => {
+    form.addEventListener("submit", (event) => {
       event.preventDefault();
       const id = form.dataset.id;
       const value = Number(form.querySelector("input").value);
@@ -329,24 +322,17 @@ function attachVaultEvents() {
       vault.updatedAt = new Date().toISOString();
       addActiveDay(vault, getDateKey(new Date()));
       handleGoalTransition(vault, previousBalance);
+      persistVaults();
 
-      try {
-        await updateVaultOnApi(vault);
-        feedback.classList.remove("error");
-        feedback.textContent = `Aporte registrado no cofre "${vault.name}".`;
-        renderVaults();
-      } catch (error) {
-        vault.hiddenBalance = previousBalance;
-        vault.totalDeposits -= 1;
-        vault.depositHistory.pop();
-        showError(error.message);
-      }
+      feedback.classList.remove("error");
+      feedback.textContent = `Aporte registrado no cofre "${vault.name}".`;
+      renderVaults();
     });
   });
 
   const lockForms = vaultList.querySelectorAll(".lock-form");
   lockForms.forEach((form) => {
-    form.addEventListener("submit", async (event) => {
+    form.addEventListener("submit", (event) => {
       event.preventDefault();
       const id = form.dataset.id;
       const action = form.dataset.action;
@@ -359,15 +345,10 @@ function attachVaultEvents() {
       if (action === "request") {
         vault.revealRequestAt = new Date().toISOString();
         vault.updatedAt = new Date().toISOString();
-
-        try {
-          await updateVaultOnApi(vault);
-          feedback.classList.remove("error");
-          feedback.textContent = `Pedido de visualizacao iniciado para "${vault.name}". Aguarde 24h.`;
-          renderVaults();
-        } catch (error) {
-          showError(error.message);
-        }
+        persistVaults();
+        feedback.classList.remove("error");
+        feedback.textContent = `Pedido de visualizacao iniciado para "${vault.name}". Aguarde 24h.`;
+        renderVaults();
         return;
       }
 
@@ -387,31 +368,23 @@ function attachVaultEvents() {
         vault.lastReflection = reflection;
         vault.revealUntil = new Date(Date.now() + 15000).toISOString();
         vault.updatedAt = new Date().toISOString();
+        persistVaults();
 
-        try {
-          await updateVaultOnApi(vault);
-          feedback.classList.remove("error");
-          feedback.textContent = `Visualizacao temporaria liberada por 15 segundos para "${vault.name}".`;
+        feedback.classList.remove("error");
+        feedback.textContent = `Visualizacao temporaria liberada por 15 segundos para "${vault.name}".`;
 
-          setTimeout(async () => {
-            const liveVault = vaults.find((item) => item.id === id);
-            if (!liveVault) {
-              return;
-            }
-            liveVault.revealUntil = null;
-            liveVault.updatedAt = new Date().toISOString();
-            try {
-              await updateVaultOnApi(liveVault);
-            } catch (_) {
-              // no-op
-            }
-            renderVaults();
-          }, 15100);
-
+        setTimeout(() => {
+          const liveVault = vaults.find((item) => item.id === id);
+          if (!liveVault) {
+            return;
+          }
+          liveVault.revealUntil = null;
+          liveVault.updatedAt = new Date().toISOString();
+          persistVaults();
           renderVaults();
-        } catch (error) {
-          showError(error.message);
-        }
+        }, 15100);
+
+        renderVaults();
       }
     });
   });
@@ -429,7 +402,7 @@ function updateVaultAccessState() {
 
   if (!currentUser) {
     feedback.classList.remove("error");
-    feedback.textContent = "Entre na sua conta para criar e salvar cofres.";
+    feedback.textContent = "Entre na sua conta para criar e salvar cofres neste navegador.";
   }
 }
 
@@ -617,41 +590,141 @@ function setupShortcutScroll() {
   });
 }
 
-async function loadVaultsFromApi() {
-  const result = await apiRequest("/vaults", { method: "GET" });
-  vaults.splice(0, vaults.length, ...result.vaults.map(sanitizeVaultFromApi));
+function loadUsers() {
+  try {
+    const raw = localStorage.getItem(USERS_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
 }
 
-async function createVaultOnApi(vault) {
-  const result = await apiRequest("/vaults", {
-    method: "POST",
-    body: { vault },
-  });
-  return sanitizeVaultFromApi(result.vault);
+function saveUsers(users) {
+  localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
 }
 
-async function updateVaultOnApi(vault) {
-  const result = await apiRequest(`/vaults/${encodeURIComponent(vault.id)}`, {
-    method: "PUT",
-    body: { vault },
-  });
-  return sanitizeVaultFromApi(result.vault);
+function startSession(user) {
+  currentUser = {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+  };
+  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(currentUser));
+  updateAuthUI();
 }
 
-function sanitizeVaultFromApi(input) {
+function restoreSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) {
+      currentUser = null;
+      return;
+    }
+
+    const session = JSON.parse(raw);
+    const users = loadUsers();
+    const found = users.find((item) => item.id === session.id);
+
+    if (!found) {
+      currentUser = null;
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+      return;
+    }
+
+    currentUser = {
+      id: found.id,
+      name: found.name,
+      email: found.email,
+    };
+  } catch (_) {
+    currentUser = null;
+  }
+}
+
+function clearSession() {
+  currentUser = null;
+  localStorage.removeItem(SESSION_STORAGE_KEY);
+  updateAuthUI();
+}
+
+function userVaultsKey() {
+  return currentUser ? `${VAULTS_PREFIX}${currentUser.id}` : "";
+}
+
+function loadVaultsForCurrentUser() {
+  vaults.splice(0, vaults.length);
+
+  if (!currentUser) {
+    return;
+  }
+
+  try {
+    const raw = localStorage.getItem(userVaultsKey());
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) {
+      return;
+    }
+
+    parsed.forEach((item) => {
+      const vault = sanitizeVault(item);
+      if (vault) {
+        vaults.push(vault);
+      }
+    });
+  } catch (_) {
+    // no-op
+  }
+}
+
+function saveVaultsForCurrentUser(vaultList) {
+  if (!currentUser) {
+    return;
+  }
+  localStorage.setItem(userVaultsKey(), JSON.stringify(vaultList));
+}
+
+function persistVaults() {
+  saveVaultsForCurrentUser(vaults);
+}
+
+function sanitizeVault(input) {
+  if (!input || typeof input !== "object") {
+    return null;
+  }
+
   const nowIso = new Date().toISOString();
+  const id = String(input.id || "").trim();
+  const name = String(input.name || "").trim();
+  const goal = Number(input.goal);
+  const hiddenBalance = Number(input.hiddenBalance);
+
+  if (!id || !name || !Number.isFinite(goal) || goal <= 0 || !Number.isFinite(hiddenBalance) || hiddenBalance < 0) {
+    return null;
+  }
+
+  const depositHistory = Array.isArray(input.depositHistory)
+    ? input.depositHistory.map(Number).filter((value) => Number.isFinite(value) && value > 0)
+    : [];
+
+  const activeDays = Array.isArray(input.activeDays)
+    ? input.activeDays.map(String).filter((day) => /^\d{4}-\d{2}-\d{2}$/.test(day))
+    : [];
+
   return {
-    id: String(input.id || crypto.randomUUID()),
-    name: String(input.name || "Cofre"),
-    goal: Number(input.goal || 0),
-    hiddenBalance: Number(input.hiddenBalance || 0),
-    totalDeposits: Number(input.totalDeposits || 0),
-    depositHistory: Array.isArray(input.depositHistory) ? input.depositHistory.map(Number).filter((n) => n > 0) : [],
-    avgDepositExpected: Number(input.avgDepositExpected || 100),
+    id,
+    name,
+    goal,
+    hiddenBalance,
+    totalDeposits: Number.isFinite(Number(input.totalDeposits)) ? Number(input.totalDeposits) : depositHistory.length,
+    depositHistory,
+    avgDepositExpected: Number.isFinite(Number(input.avgDepositExpected)) && Number(input.avgDepositExpected) > 0
+      ? Number(input.avgDepositExpected)
+      : 100,
     createdAt: typeof input.createdAt === "string" ? input.createdAt : nowIso,
     updatedAt: typeof input.updatedAt === "string" ? input.updatedAt : nowIso,
     challengeMode: Boolean(input.challengeMode),
-    activeDays: Array.isArray(input.activeDays) ? input.activeDays : [],
+    activeDays,
     lockedMode: Boolean(input.lockedMode),
     revealRequestAt: typeof input.revealRequestAt === "string" ? input.revealRequestAt : null,
     revealUntil: typeof input.revealUntil === "string" ? input.revealUntil : null,
@@ -681,20 +754,6 @@ function toggleAuthTab(tab) {
   registerForm.classList.toggle("hidden", isLogin);
 }
 
-function startSession(token, user) {
-  authToken = token;
-  currentUser = user;
-  localStorage.setItem(TOKEN_STORAGE_KEY, token);
-  updateAuthUI();
-}
-
-function clearSession() {
-  authToken = "";
-  currentUser = null;
-  localStorage.removeItem(TOKEN_STORAGE_KEY);
-  updateAuthUI();
-}
-
 function setAuthMessage(message) {
   authFeedback.classList.remove("error");
   authFeedback.textContent = message;
@@ -708,42 +767,6 @@ function setAuthError(message) {
 function showError(message) {
   feedback.textContent = message;
   feedback.classList.add("error");
-}
-
-async function apiRequest(path, options = {}) {
-  const {
-    method = "GET",
-    body,
-    auth = true,
-  } = options;
-
-  const headers = {
-    "Content-Type": "application/json",
-  };
-
-  if (auth && authToken) {
-    headers.Authorization = `Bearer ${authToken}`;
-  }
-
-  const response = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      clearSession();
-      vaults.splice(0, vaults.length);
-      renderVaults();
-      updateVaultAccessState();
-    }
-    throw new Error(data.error || "Erro ao processar sua solicitacao.");
-  }
-
-  return data;
 }
 
 function escapeHTML(text) {

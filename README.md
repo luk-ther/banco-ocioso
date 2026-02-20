@@ -1,39 +1,35 @@
 ﻿# Banco Ocioso
 
-Aplicacao web com autenticacao, cofres por usuario e banco SQLite local.
+Aplicacao web com visual motivacional, modo desafio e modo bloqueado.
 
-## Como iniciar localmente
+## Publicacao 100% gratuita (GitHub Pages)
 
-1. Instale dependencias:
-   npm install
+Este projeto foi ajustado para funcionar como site estatico, sem servidor pago.
 
-2. (Opcional) defina variaveis de ambiente:
-   - Copie `.env.example` para `.env`
-   - Ajuste `JWT_SECRET`
+### Como publicar gratis
 
-3. Rode o servidor:
-   npm start
+1. No GitHub, abra o repositorio `luk-ther/banco-ocioso`.
+2. Clique em `Settings`.
+3. No menu lateral, clique em `Pages`.
+4. Em `Build and deployment`:
+   - `Source`: `Deploy from a branch`
+   - `Branch`: `main`
+   - `Folder`: `/ (root)`
+5. Clique em `Save`.
+6. Aguarde 1 a 3 minutos e abra a URL gerada pelo GitHub Pages.
 
-4. Abra:
-   http://localhost:3000
+## Importante sobre os dados
 
-## Deploy no Render
+- Login e cofres ficam salvos no `localStorage` do navegador.
+- Cada usuario e separado dentro do mesmo navegador/dispositivo.
+- Se limpar dados do navegador, os dados locais serao apagados.
+- Para ter persistencia global (multi-dispositivo), sera necessario backend/banco externo.
 
-O projeto ja esta preparado com `render.yaml` (backend Node + SQLite persistente).
+## Rodar localmente (opcional)
 
-1. Suba este projeto para um repositorio no GitHub.
-2. No Render, clique em **New +** > **Blueprint**.
-3. Conecte seu repositorio e confirme o deploy.
-4. O Render vai criar:
-   - Web Service Node
-   - Disco persistente em `/var/data` para o banco SQLite
-   - `JWT_SECRET` gerado automaticamente
-
-Apos publicar, acesse a URL gerada pelo Render.
+Basta abrir o `index.html` no navegador.
 
 ## Stack
 
 - Front-end: HTML/CSS/JS
-- Back-end: Node.js + Express
-- Banco: SQLite (`data/banco-ocioso.db` local ou `/var/data` em producao)
-- Auth: JWT + senha com bcrypt
+- Persistencia gratuita: localStorage do navegador
