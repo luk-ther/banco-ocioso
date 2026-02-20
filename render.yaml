@@ -13,7 +13,7 @@
         value: production
       - key: DATA_DIR
         value: /var/data
-    disks:
-      - name: banco-ocioso-data
-        mountPath: /var/data
-        sizeGB: 1
+    disk:
+      name: banco-ocioso-data
+      mountPath: /var/data
+      sizeGB: 1
