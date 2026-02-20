@@ -1,0 +1,16 @@
+﻿{
+  "name": "banco-ocioso",
+  "version": "1.0.0",
+  "description": "Banco Ocioso com autenticacao e cofres por usuario",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^12.2.0",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2"
+  }
+}
