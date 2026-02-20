@@ -615,23 +615,37 @@ textarea:focus {
   right: 1rem;
   bottom: 1rem;
   z-index: 40;
-  display: flex;
-  flex-direction: column-reverse;
-  align-items: flex-end;
-  gap: 0.55rem;
+  width: 56px;
+  height: 56px;
+  pointer-events: none;
 }
 
 .support-toggle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
   border: 1px solid transparent;
   border-radius: 999px;
-  min-height: 46px;
-  padding: 0.72rem 1.05rem;
+  width: 56px;
+  height: 56px;
+  min-height: 56px;
+  padding: 0;
+  font-size: 0;
+  line-height: 0;
   font-weight: 800;
   color: #001117;
   background: linear-gradient(135deg, var(--brand), #00b6ff 50%, var(--brand-2));
   box-shadow: 0 12px 28px rgba(12, 224, 255, 0.35);
   cursor: pointer;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, opacity 0.2s ease;
+  pointer-events: auto;
+  z-index: 2;
+}
+
+.support-toggle::before {
+  content: "💬";
+  font-size: 1.28rem;
+  line-height: 1;
 }
 
 .support-toggle:hover {
@@ -640,28 +654,40 @@ textarea:focus {
 }
 
 .support-toggle.is-active {
-  transform: translateY(-1px) scale(1.04);
-  box-shadow: 0 14px 30px rgba(12, 224, 255, 0.5);
+  opacity: 0;
+  transform: scale(0.7);
+  pointer-events: none;
 }
 
 .support-panel {
-  width: min(360px, calc(100vw - 1.4rem));
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 56px;
+  max-height: 56px;
   border: 1px solid var(--line);
-  border-radius: 16px;
-  background: linear-gradient(170deg, #131722, #0f1117);
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--brand), #00b6ff 50%, var(--brand-2));
   box-shadow: var(--shadow);
-  padding: 0.9rem;
+  padding: 0;
   opacity: 0;
-  transform: translateY(10px) scale(0.98);
+  transform: scale(0.2);
   transform-origin: bottom right;
   pointer-events: none;
   visibility: hidden;
-  transition: opacity 0.24s ease, transform 0.24s ease, visibility 0.24s ease;
+  overflow: hidden;
+  transition: opacity 0.28s ease, transform 0.28s ease, visibility 0.28s ease,
+    width 0.28s ease, max-height 0.28s ease, border-radius 0.28s ease, padding 0.28s ease, background 0.28s ease;
 }
 
 .support-panel.is-open {
+  width: min(360px, calc(100vw - 1.4rem));
+  max-height: 640px;
+  border-radius: 16px;
+  background: linear-gradient(170deg, #131722, #0f1117);
+  padding: 0.9rem;
   opacity: 1;
-  transform: translateY(0) scale(1);
+  transform: scale(1);
   pointer-events: auto;
   visibility: visible;
 }
@@ -725,7 +751,8 @@ textarea:focus {
     right: 0.7rem;
     left: auto;
     bottom: 0.7rem;
-    align-items: flex-end;
+    width: 56px;
+    height: 56px;
   }
 
   .support-toggle {
@@ -734,22 +761,20 @@ textarea:focus {
     min-height: 56px;
     border-radius: 50%;
     padding: 0;
-    font-size: 0;
-    line-height: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
   }
 
-  .support-toggle::before {
-    content: "💬";
-    font-size: 1.28rem;
-    line-height: 1;
+  .support-panel {
+    width: 56px;
+    max-height: 56px;
+    transform-origin: bottom right;
   }
 
-  .support-panel {
+  .support-panel.is-open {
     width: min(360px, calc(100vw - 1.4rem));
-    transform-origin: bottom right;
+    max-height: 640px;
   }
 
   .support-toast {
