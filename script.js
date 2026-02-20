@@ -4,10 +4,6 @@
     currency: "BRL",
   }).format(value);
 
-const USERS_STORAGE_KEY = "banco_ocioso_users_v1";
-const SESSION_STORAGE_KEY = "banco_ocioso_session_v1";
-const VAULTS_PREFIX = "banco_ocioso_vaults_user_";
-
 const revealNodes = document.querySelectorAll(".reveal");
 const rulesCheckbox = document.getElementById("confirmRules");
 const createVaultBtn = document.getElementById("createVaultBtn");
@@ -27,6 +23,8 @@ const logoutBtn = document.getElementById("logoutBtn");
 
 const vaults = [];
 let currentUser = null;
+let supabaseClient = null;
+let supabaseReady = false;
 
 const observer = new IntersectionObserver(
   (entries) => {
@@ -45,22 +43,80 @@ setupAuthUI();
 setupVaultHandlers();
 init();
 
-function init() {
-  restoreSession();
-  if (currentUser) {
-    loadVaultsForCurrentUser();
+async function init() {
+  supabaseReady = initSupabase();
+
+  if (!supabaseReady) {
+    setAuthError("Configure SUPABASE_URL e SUPABASE_ANON_KEY em supabase-config.js.");
+    disableAuthForms();
+    updateVaultAccessState();
+    renderVaults();
+    return;
   }
+
+  const { data, error } = await supabaseClient.auth.getSession();
+  if (error) {
+    setAuthError(error.message);
+  }
+
+  currentUser = data?.session?.user || null;
+  if (currentUser) {
+    await loadVaultsFromDb();
+  }
+
+  supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+    currentUser = session?.user || null;
+    if (currentUser) {
+      await loadVaultsFromDb();
+    } else {
+      vaults.splice(0, vaults.length);
+    }
+    updateAuthUI();
+    updateVaultAccessState();
+    renderVaults();
+  });
+
   updateAuthUI();
-  renderVaults();
   updateVaultAccessState();
+  renderVaults();
+}
+
+function initSupabase() {
+  if (!window.supabase || typeof window.supabase.createClient !== "function") {
+    return false;
+  }
+
+  const url = String(window.SUPABASE_URL || "").trim();
+  const key = String(window.SUPABASE_ANON_KEY || "").trim();
+
+  if (!url || !key) {
+    return false;
+  }
+
+  supabaseClient = window.supabase.createClient(url, key);
+  return true;
+}
+
+function disableAuthForms() {
+  loginForm.querySelectorAll("input, button").forEach((el) => {
+    el.disabled = true;
+  });
+  registerForm.querySelectorAll("input, button").forEach((el) => {
+    el.disabled = true;
+  });
 }
 
 function setupAuthUI() {
   tabLogin.addEventListener("click", () => toggleAuthTab("login"));
   tabRegister.addEventListener("click", () => toggleAuthTab("register"));
 
-  loginForm.addEventListener("submit", (event) => {
+  loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+
+    if (!supabaseReady) {
+      setAuthError("Supabase nao configurado.");
+      return;
+    }
 
     const email = String(document.getElementById("loginEmail").value || "")
       .trim()
@@ -72,24 +128,27 @@ function setupAuthUI() {
       return;
     }
 
-    const users = loadUsers();
-    const user = users.find((item) => item.email === email && item.password === password);
+    const { error } = await supabaseClient.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-    if (!user) {
-      setAuthError("Credenciais invalidas.");
+    if (error) {
+      setAuthError(error.message);
       return;
     }
 
-    startSession(user);
-    loadVaultsForCurrentUser();
     setAuthMessage("Login realizado com sucesso.");
     loginForm.reset();
-    renderVaults();
-    updateVaultAccessState();
   });
 
-  registerForm.addEventListener("submit", (event) => {
+  registerForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+
+    if (!supabaseReady) {
+      setAuthError("Supabase nao configurado.");
+      return;
+    }
 
     const name = String(document.getElementById("registerName").value || "").trim();
     const email = String(document.getElementById("registerEmail").value || "")
@@ -107,40 +166,44 @@ function setupAuthUI() {
       return;
     }
 
-    const users = loadUsers();
-    if (users.some((item) => item.email === email)) {
-      setAuthError("Ja existe uma conta local com este e-mail.");
+    const { data, error } = await supabaseClient.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name,
+        },
+      },
+    });
+
+    if (error) {
+      setAuthError(error.message);
       return;
     }
 
-    const user = {
-      id: crypto.randomUUID(),
-      name,
-      email,
-      password,
-    };
+    if (data.session) {
+      setAuthMessage("Conta criada e login efetuado.");
+    } else {
+      setAuthMessage("Conta criada. Verifique seu e-mail para confirmar o acesso.");
+    }
 
-    users.push(user);
-    saveUsers(users);
-
-    startSession(user);
-    saveVaultsForCurrentUser([]);
-    loadVaultsForCurrentUser();
-    setAuthMessage("Conta criada com sucesso neste navegador.");
     registerForm.reset();
-    renderVaults();
-    updateVaultAccessState();
   });
 
-  logoutBtn.addEventListener("click", () => {
-    clearSession();
-    vaults.splice(0, vaults.length);
-    renderVaults();
-    updateAuthUI();
-    updateVaultAccessState();
+  logoutBtn.addEventListener("click", async () => {
+    if (!supabaseReady) {
+      return;
+    }
+
+    const { error } = await supabaseClient.auth.signOut();
+    if (error) {
+      setAuthError(error.message);
+      return;
+    }
+
+    setAuthMessage("Sessao encerrada.");
     feedback.textContent = "";
     feedback.classList.remove("error");
-    setAuthMessage("Sessao encerrada.");
   });
 }
 
@@ -153,8 +216,13 @@ function setupVaultHandlers() {
       : "Confirme as instrucoes para liberar a criacao de cofre.";
   });
 
-  vaultForm.addEventListener("submit", (event) => {
+  vaultForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+
+    if (!supabaseReady) {
+      showError("Supabase nao configurado.");
+      return;
+    }
 
     if (!currentUser) {
       showError("Entre na sua conta para criar e salvar cofres.");
@@ -204,9 +272,14 @@ function setupVaultHandlers() {
     };
 
     handleGoalTransition(vault, 0);
-    vaults.unshift(vault);
-    persistVaults();
 
+    const { error } = await upsertVault(vault);
+    if (error) {
+      showError(error.message);
+      return;
+    }
+
+    vaults.unshift(vault);
     vaultForm.reset();
     document.getElementById("challengeMode").checked = true;
     document.getElementById("lockedMode").checked = true;
@@ -218,6 +291,11 @@ function setupVaultHandlers() {
 }
 
 function renderVaults() {
+  if (!supabaseReady) {
+    vaultList.innerHTML = "<article class=\"vault-card\"><p class=\"vault-meta\">Configure o Supabase para ativar login e cofres.</p></article>";
+    return;
+  }
+
   if (!currentUser) {
     vaultList.innerHTML = "<article class=\"vault-card\"><p class=\"vault-meta\">Entre na sua conta para carregar seus cofres.</p></article>";
     return;
@@ -301,7 +379,7 @@ function renderVaults() {
 function attachVaultEvents() {
   const depositForms = vaultList.querySelectorAll(".deposit-form");
   depositForms.forEach((form) => {
-    form.addEventListener("submit", (event) => {
+    form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const id = form.dataset.id;
       const value = Number(form.querySelector("input").value);
@@ -322,7 +400,15 @@ function attachVaultEvents() {
       vault.updatedAt = new Date().toISOString();
       addActiveDay(vault, getDateKey(new Date()));
       handleGoalTransition(vault, previousBalance);
-      persistVaults();
+
+      const { error } = await upsertVault(vault);
+      if (error) {
+        vault.hiddenBalance = previousBalance;
+        vault.totalDeposits -= 1;
+        vault.depositHistory.pop();
+        showError(error.message);
+        return;
+      }
 
       feedback.classList.remove("error");
       feedback.textContent = `Aporte registrado no cofre "${vault.name}".`;
@@ -332,7 +418,7 @@ function attachVaultEvents() {
 
   const lockForms = vaultList.querySelectorAll(".lock-form");
   lockForms.forEach((form) => {
-    form.addEventListener("submit", (event) => {
+    form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const id = form.dataset.id;
       const action = form.dataset.action;
@@ -345,7 +431,13 @@ function attachVaultEvents() {
       if (action === "request") {
         vault.revealRequestAt = new Date().toISOString();
         vault.updatedAt = new Date().toISOString();
-        persistVaults();
+
+        const { error } = await upsertVault(vault);
+        if (error) {
+          showError(error.message);
+          return;
+        }
+
         feedback.classList.remove("error");
         feedback.textContent = `Pedido de visualizacao iniciado para "${vault.name}". Aguarde 24h.`;
         renderVaults();
@@ -368,19 +460,24 @@ function attachVaultEvents() {
         vault.lastReflection = reflection;
         vault.revealUntil = new Date(Date.now() + 15000).toISOString();
         vault.updatedAt = new Date().toISOString();
-        persistVaults();
+
+        const unlockSave = await upsertVault(vault);
+        if (unlockSave.error) {
+          showError(unlockSave.error.message);
+          return;
+        }
 
         feedback.classList.remove("error");
         feedback.textContent = `Visualizacao temporaria liberada por 15 segundos para "${vault.name}".`;
 
-        setTimeout(() => {
+        setTimeout(async () => {
           const liveVault = vaults.find((item) => item.id === id);
           if (!liveVault) {
             return;
           }
           liveVault.revealUntil = null;
           liveVault.updatedAt = new Date().toISOString();
-          persistVaults();
+          await upsertVault(liveVault);
           renderVaults();
         }, 15100);
 
@@ -391,19 +488,115 @@ function attachVaultEvents() {
 }
 
 function updateVaultAccessState() {
-  createVaultBtn.disabled = !rulesCheckbox.checked || !currentUser;
+  createVaultBtn.disabled = !supabaseReady || !rulesCheckbox.checked || !currentUser;
   const fields = vaultForm.querySelectorAll("input, button");
   fields.forEach((field) => {
     if (field.id === "createVaultBtn") {
       return;
     }
-    field.disabled = !currentUser;
+    field.disabled = !supabaseReady || !currentUser;
   });
+
+  if (!supabaseReady) {
+    feedback.classList.remove("error");
+    feedback.textContent = "Configure o Supabase para ativar o salvamento em nuvem.";
+    return;
+  }
 
   if (!currentUser) {
     feedback.classList.remove("error");
-    feedback.textContent = "Entre na sua conta para criar e salvar cofres neste navegador.";
+    feedback.textContent = "Entre na sua conta para criar e salvar cofres.";
   }
+}
+
+async function loadVaultsFromDb() {
+  vaults.splice(0, vaults.length);
+
+  const { data, error } = await supabaseClient
+    .from("vaults")
+    .select("id, payload, updated_at")
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    showError(error.message);
+    return;
+  }
+
+  data.forEach((row) => {
+    const vault = sanitizeVault(row.payload, row.id);
+    if (vault) {
+      vaults.push(vault);
+    }
+  });
+}
+
+function sanitizeVault(input, fallbackId = "") {
+  if (!input || typeof input !== "object") {
+    return null;
+  }
+
+  const nowIso = new Date().toISOString();
+  const id = String(input.id || fallbackId || "").trim();
+  const name = String(input.name || "").trim();
+  const goal = Number(input.goal);
+  const hiddenBalance = Number(input.hiddenBalance);
+
+  if (!id || !name || !Number.isFinite(goal) || goal <= 0 || !Number.isFinite(hiddenBalance) || hiddenBalance < 0) {
+    return null;
+  }
+
+  const depositHistory = Array.isArray(input.depositHistory)
+    ? input.depositHistory.map(Number).filter((value) => Number.isFinite(value) && value > 0)
+    : [];
+
+  const activeDays = Array.isArray(input.activeDays)
+    ? input.activeDays.map(String).filter((day) => /^\d{4}-\d{2}-\d{2}$/.test(day))
+    : [];
+
+  return {
+    id,
+    name,
+    goal,
+    hiddenBalance,
+    totalDeposits: Number.isFinite(Number(input.totalDeposits)) ? Number(input.totalDeposits) : depositHistory.length,
+    depositHistory,
+    avgDepositExpected: Number.isFinite(Number(input.avgDepositExpected)) && Number(input.avgDepositExpected) > 0
+      ? Number(input.avgDepositExpected)
+      : 100,
+    createdAt: typeof input.createdAt === "string" ? input.createdAt : nowIso,
+    updatedAt: typeof input.updatedAt === "string" ? input.updatedAt : nowIso,
+    challengeMode: Boolean(input.challengeMode),
+    activeDays,
+    lockedMode: Boolean(input.lockedMode),
+    revealRequestAt: typeof input.revealRequestAt === "string" ? input.revealRequestAt : null,
+    revealUntil: typeof input.revealUntil === "string" ? input.revealUntil : null,
+    lastReflection: typeof input.lastReflection === "string" ? input.lastReflection : "",
+    goalReachedAt: typeof input.goalReachedAt === "string" ? input.goalReachedAt : null,
+    celebrateUntil: typeof input.celebrateUntil === "string" ? input.celebrateUntil : null,
+  };
+}
+
+async function upsertVault(vault) {
+  const payload = {
+    ...vault,
+    id: vault.id,
+  };
+
+  const { error } = await supabaseClient
+    .from("vaults")
+    .upsert(
+      {
+        id: vault.id,
+        user_id: currentUser.id,
+        payload,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: "id",
+      }
+    );
+
+  return { error };
 }
 
 function buildChallenge(vault) {
@@ -590,155 +783,11 @@ function setupShortcutScroll() {
   });
 }
 
-function loadUsers() {
-  try {
-    const raw = localStorage.getItem(USERS_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (_) {
-    return [];
-  }
-}
-
-function saveUsers(users) {
-  localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
-}
-
-function startSession(user) {
-  currentUser = {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-  };
-  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(currentUser));
-  updateAuthUI();
-}
-
-function restoreSession() {
-  try {
-    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
-    if (!raw) {
-      currentUser = null;
-      return;
-    }
-
-    const session = JSON.parse(raw);
-    const users = loadUsers();
-    const found = users.find((item) => item.id === session.id);
-
-    if (!found) {
-      currentUser = null;
-      localStorage.removeItem(SESSION_STORAGE_KEY);
-      return;
-    }
-
-    currentUser = {
-      id: found.id,
-      name: found.name,
-      email: found.email,
-    };
-  } catch (_) {
-    currentUser = null;
-  }
-}
-
-function clearSession() {
-  currentUser = null;
-  localStorage.removeItem(SESSION_STORAGE_KEY);
-  updateAuthUI();
-}
-
-function userVaultsKey() {
-  return currentUser ? `${VAULTS_PREFIX}${currentUser.id}` : "";
-}
-
-function loadVaultsForCurrentUser() {
-  vaults.splice(0, vaults.length);
-
-  if (!currentUser) {
-    return;
-  }
-
-  try {
-    const raw = localStorage.getItem(userVaultsKey());
-    const parsed = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(parsed)) {
-      return;
-    }
-
-    parsed.forEach((item) => {
-      const vault = sanitizeVault(item);
-      if (vault) {
-        vaults.push(vault);
-      }
-    });
-  } catch (_) {
-    // no-op
-  }
-}
-
-function saveVaultsForCurrentUser(vaultList) {
-  if (!currentUser) {
-    return;
-  }
-  localStorage.setItem(userVaultsKey(), JSON.stringify(vaultList));
-}
-
-function persistVaults() {
-  saveVaultsForCurrentUser(vaults);
-}
-
-function sanitizeVault(input) {
-  if (!input || typeof input !== "object") {
-    return null;
-  }
-
-  const nowIso = new Date().toISOString();
-  const id = String(input.id || "").trim();
-  const name = String(input.name || "").trim();
-  const goal = Number(input.goal);
-  const hiddenBalance = Number(input.hiddenBalance);
-
-  if (!id || !name || !Number.isFinite(goal) || goal <= 0 || !Number.isFinite(hiddenBalance) || hiddenBalance < 0) {
-    return null;
-  }
-
-  const depositHistory = Array.isArray(input.depositHistory)
-    ? input.depositHistory.map(Number).filter((value) => Number.isFinite(value) && value > 0)
-    : [];
-
-  const activeDays = Array.isArray(input.activeDays)
-    ? input.activeDays.map(String).filter((day) => /^\d{4}-\d{2}-\d{2}$/.test(day))
-    : [];
-
-  return {
-    id,
-    name,
-    goal,
-    hiddenBalance,
-    totalDeposits: Number.isFinite(Number(input.totalDeposits)) ? Number(input.totalDeposits) : depositHistory.length,
-    depositHistory,
-    avgDepositExpected: Number.isFinite(Number(input.avgDepositExpected)) && Number(input.avgDepositExpected) > 0
-      ? Number(input.avgDepositExpected)
-      : 100,
-    createdAt: typeof input.createdAt === "string" ? input.createdAt : nowIso,
-    updatedAt: typeof input.updatedAt === "string" ? input.updatedAt : nowIso,
-    challengeMode: Boolean(input.challengeMode),
-    activeDays,
-    lockedMode: Boolean(input.lockedMode),
-    revealRequestAt: typeof input.revealRequestAt === "string" ? input.revealRequestAt : null,
-    revealUntil: typeof input.revealUntil === "string" ? input.revealUntil : null,
-    lastReflection: typeof input.lastReflection === "string" ? input.lastReflection : "",
-    goalReachedAt: typeof input.goalReachedAt === "string" ? input.goalReachedAt : null,
-    celebrateUntil: typeof input.celebrateUntil === "string" ? input.celebrateUntil : null,
-  };
-}
-
 function updateAuthUI() {
   if (currentUser) {
     authGuest.classList.add("hidden");
     authUser.classList.remove("hidden");
-    authUserName.textContent = currentUser.name;
+    authUserName.textContent = currentUser.user_metadata?.name || currentUser.email || "Usuario";
   } else {
     authGuest.classList.remove("hidden");
     authUser.classList.add("hidden");

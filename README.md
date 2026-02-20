@@ -1,35 +1,44 @@
 ﻿# Banco Ocioso
 
-Aplicacao web com visual motivacional, modo desafio e modo bloqueado.
+Aplicacao web com visual motivacional, autenticacao e cofres sincronizados com Supabase.
 
-## Publicacao 100% gratuita (GitHub Pages)
+## Configuracao do Supabase (gratis)
 
-Este projeto foi ajustado para funcionar como site estatico, sem servidor pago.
+1. Crie um projeto em https://supabase.com
+2. No painel do projeto, abra `Project Settings` > `API`
+3. Copie:
+   - `Project URL`
+   - `anon public key`
+4. Abra o arquivo `supabase-config.js` e preencha:
 
-### Como publicar gratis
+```js
+window.SUPABASE_URL = "https://SEU-PROJETO.supabase.co";
+window.SUPABASE_ANON_KEY = "SUA_ANON_KEY";
+```
 
-1. No GitHub, abra o repositorio `luk-ther/banco-ocioso`.
-2. Clique em `Settings`.
-3. No menu lateral, clique em `Pages`.
-4. Em `Build and deployment`:
+5. No Supabase, abra `SQL Editor` e execute o arquivo `supabase-schema.sql`
+6. Em `Authentication` > `Providers` > `Email`:
+   - Ative Email/Password
+   - Se quiser login imediato sem confirmar email, desative confirmacao obrigatoria
+
+## Publicacao gratuita (GitHub Pages)
+
+1. No GitHub, abra o repositorio `luk-ther/banco-ocioso`
+2. Clique em `Settings` > `Pages`
+3. Em `Build and deployment`:
    - `Source`: `Deploy from a branch`
    - `Branch`: `main`
    - `Folder`: `/ (root)`
-5. Clique em `Save`.
-6. Aguarde 1 a 3 minutos e abra a URL gerada pelo GitHub Pages.
+4. Clique em `Save`
 
-## Importante sobre os dados
+## Como funciona agora
 
-- Login e cofres ficam salvos no `localStorage` do navegador.
-- Cada usuario e separado dentro do mesmo navegador/dispositivo.
-- Se limpar dados do navegador, os dados locais serao apagados.
-- Para ter persistencia global (multi-dispositivo), sera necessario backend/banco externo.
+- Login e cadastro: Supabase Auth
+- Cofres: tabela `public.vaults` com RLS por usuario
+- Dados sincronizados entre navegadores/dispositivos da mesma conta
 
-## Rodar localmente (opcional)
+## Arquivos importantes
 
-Basta abrir o `index.html` no navegador.
-
-## Stack
-
-- Front-end: HTML/CSS/JS
-- Persistencia gratuita: localStorage do navegador
+- `supabase-config.js`: credenciais do projeto
+- `supabase-schema.sql`: estrutura da tabela e politicas de seguranca
+- `script.js`: integracao Auth + Banco
