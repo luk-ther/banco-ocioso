@@ -195,6 +195,17 @@ main {
   border-color: var(--brand);
 }
 
+.btn-danger {
+  border-color: rgba(255, 84, 112, 0.55);
+  background: rgba(255, 84, 112, 0.08);
+  color: #ffb9c4;
+}
+
+.btn-danger:hover {
+  border-color: #ff5470;
+  background: rgba(255, 84, 112, 0.16);
+}
+
 .hero-card {
   margin-top: 2rem;
   border: 1px solid #1e2531;

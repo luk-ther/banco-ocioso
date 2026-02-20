@@ -381,6 +381,10 @@ function renderVaults() {
           <input type="number" min="0.01" step="0.01" placeholder="Registrar novo aporte (R$)" required />
           <button class="btn btn-ghost" type="submit">Registrar aporte</button>
         </form>
+
+        <button class="btn btn-danger delete-vault-btn" type="button" data-id="${vault.id}">
+          Excluir meta
+        </button>
       </article>
       `;
     })
@@ -391,6 +395,37 @@ function renderVaults() {
 }
 
 function attachVaultEvents() {
+  const deleteButtons = vaultList.querySelectorAll(".delete-vault-btn");
+  deleteButtons.forEach((button) => {
+    button.addEventListener("click", async () => {
+      const id = button.dataset.id;
+      const vault = vaults.find((item) => item.id === id);
+      if (!vault) {
+        return;
+      }
+
+      const confirmed = window.confirm(`Deseja excluir a meta "${vault.name}"? Essa ação não pode ser desfeita.`);
+      if (!confirmed) {
+        return;
+      }
+
+      const { error } = await deleteVault(vault.id);
+      if (error) {
+        showError(error.message);
+        return;
+      }
+
+      const index = vaults.findIndex((item) => item.id === vault.id);
+      if (index >= 0) {
+        vaults.splice(index, 1);
+      }
+
+      feedback.classList.remove("error");
+      feedback.textContent = `Meta "${vault.name}" excluída com sucesso.`;
+      renderVaults();
+    });
+  });
+
   const depositForms = vaultList.querySelectorAll(".deposit-form");
   depositForms.forEach((form) => {
     form.addEventListener("submit", async (event) => {
@@ -609,6 +644,15 @@ async function upsertVault(vault) {
         onConflict: "id",
       }
     );
+
+  return { error };
+}
+
+async function deleteVault(vaultId) {
+  const { error } = await supabaseClient
+    .from("vaults")
+    .delete()
+    .eq("id", vaultId);
 
   return { error };
 }
