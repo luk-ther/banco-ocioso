@@ -337,13 +337,13 @@ function renderVaults() {
       <article class="vault-card ${isGoalReached ? "goal-reached" : ""} ${isCelebrating ? "goal-celebrating" : ""}">
         <div class="vault-head">
           <h3>${escapeHTML(vault.name)}</h3>
-          <span class="badge">${isGoalReached ? "Meta batida" : "Saldo oculto"}</span>
+          <span class="badge">${isGoalReached ? "Meta concluída" : "Saldo oculto"}</span>
         </div>
 
         <p class="vault-meta">Meta definida: ${formatBRL(vault.goal)} • Registros: ${vault.totalDeposits} • Atualizado em ${new Date(vault.updatedAt).toLocaleDateString("pt-BR")}</p>
 
         <div class="progress-strip">
-          <strong>🔒 Cofre ${progress}% protegido</strong>
+          <strong>🔒 Cofre ${progress}% concluído</strong>
           <div class="progress-line"><span style="width:${progress}%"></span></div>
         </div>
 
