@@ -615,8 +615,9 @@ textarea:focus {
   right: 1rem;
   bottom: 1rem;
   z-index: 40;
-  display: grid;
-  justify-items: end;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-end;
   gap: 0.55rem;
 }
 
@@ -724,7 +725,7 @@ textarea:focus {
     right: 0.7rem;
     left: auto;
     bottom: 0.7rem;
-    justify-items: end;
+    align-items: flex-end;
   }
 
   .support-toggle {
