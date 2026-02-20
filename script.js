@@ -120,7 +120,7 @@ function setupAuthUI() {
     event.preventDefault();
 
     if (!supabaseReady) {
-      setAuthError("Supabase nao configurado.");
+      setAuthError("Supabase não configurado.");
       return;
     }
 
@@ -152,7 +152,7 @@ function setupAuthUI() {
     event.preventDefault();
 
     if (!supabaseReady) {
-      setAuthError("Supabase nao configurado.");
+      setAuthError("Supabase não configurado.");
       return;
     }
 
@@ -168,7 +168,7 @@ function setupAuthUI() {
     }
 
     if (password.length < 6) {
-      setAuthError("A senha precisa ter no minimo 6 caracteres.");
+      setAuthError("A senha precisa ter no mínimo 6 caracteres.");
       return;
     }
 
@@ -207,7 +207,7 @@ function setupAuthUI() {
       return;
     }
 
-    setAuthMessage("Sessao encerrada.");
+    setAuthMessage("Sessão encerrada.");
     feedback.textContent = "";
     feedback.classList.remove("error");
   });
@@ -218,15 +218,15 @@ function setupVaultHandlers() {
     updateVaultAccessState();
     feedback.classList.remove("error");
     feedback.textContent = rulesCheckbox.checked
-      ? "Instrucoes confirmadas. Se estiver conectado, voce ja pode criar seu cofre."
-      : "Confirme as instrucoes para liberar a criacao de cofre.";
+      ? "Instruções confirmadas. Se estiver conectado, você já pode criar seu cofre."
+      : "Confirme as instruções para liberar a criação de cofre.";
   });
 
   vaultForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     if (!supabaseReady) {
-      showError("Supabase nao configurado.");
+      showError("Supabase não configurado.");
       return;
     }
 
@@ -236,7 +236,7 @@ function setupVaultHandlers() {
     }
 
     if (!rulesCheckbox.checked) {
-      showError("Confirme as instrucoes antes de criar a simulacao.");
+      showError("Confirme as instruções antes de criar a simulação.");
       return;
     }
 
@@ -343,7 +343,7 @@ function renderVaults() {
         <div class="motivation-grid">
           <div class="motiv-box">
             <span class="motiv-label">Blocos</span>
-            <span class="motiv-value">🧱 ${blocksDone} de 10 concluidos</span>
+            <span class="motiv-value">🧱 ${blocksDone} de 10 concluídos</span>
           </div>
           <div class="motiv-box">
             <span class="motiv-label">Status</span>
@@ -354,7 +354,7 @@ function renderVaults() {
             <span class="motiv-value">🪙 ${depositsLeft}</span>
           </div>
           <div class="motiv-box">
-            <span class="motiv-label">Reflexao</span>
+            <span class="motiv-label">Reflexão</span>
             <span class="motiv-value">${phrase}</span>
           </div>
         </div>
@@ -364,7 +364,7 @@ function renderVaults() {
             Valor guardado neste cofre:
             <strong>${isGoalReached ? formatBRL(vault.hiddenBalance) : "••••••••"}</strong>
           </p>
-          ${isGoalReached ? "<p class=\"goal-unlock\">Meta concluida: valor liberado automaticamente.</p>" : ""}
+          ${isGoalReached ? "<p class=\"goal-unlock\">Meta concluída: valor liberado automaticamente.</p>" : ""}
         </div>
 
         ${challengeMarkup}
@@ -446,7 +446,7 @@ function attachVaultEvents() {
         }
 
         feedback.classList.remove("error");
-        feedback.textContent = `Pedido de visualizacao iniciado para "${vault.name}". Aguarde 24h.`;
+        feedback.textContent = `Pedido de visualização iniciado para "${vault.name}". Aguarde 24h.`;
         renderVaults();
         return;
       }
@@ -454,13 +454,13 @@ function attachVaultEvents() {
       if (action === "unlock") {
         const reflection = (form.querySelector("textarea")?.value || "").trim();
         if (reflection.length < 20) {
-          showError("Escreva uma reflexao com pelo menos 20 caracteres para liberar visualizacao.");
+          showError("Escreva uma reflexão com pelo menos 20 caracteres para liberar visualização.");
           return;
         }
 
         const readyAt = new Date(vault.revealRequestAt).getTime() + 24 * 60 * 60 * 1000;
         if (Date.now() < readyAt) {
-          showError("A visualizacao ainda nao esta liberada. Aguarde completar 24h.");
+          showError("A visualização ainda não está liberada. Aguarde completar 24h.");
           return;
         }
 
@@ -475,7 +475,7 @@ function attachVaultEvents() {
         }
 
         feedback.classList.remove("error");
-        feedback.textContent = `Visualizacao temporaria liberada por 15 segundos para "${vault.name}".`;
+        feedback.textContent = `Visualização temporária liberada por 15 segundos para "${vault.name}".`;
 
         setTimeout(async () => {
           const liveVault = vaults.find((item) => item.id === id);
@@ -609,11 +609,11 @@ async function upsertVault(vault) {
 function buildChallenge(vault) {
   const days = Math.min(30, vault.activeDays.length);
   const done = Math.round((days / 30) * 100);
-  const message = days >= 30 ? "Desafio concluido." : `Faltam ${30 - days} dias para fechar o desafio.`;
+  const message = days >= 30 ? "Desafio concluído." : `Faltam ${30 - days} dias para fechar o desafio.`;
 
   return `
     <div class="challenge">
-      <p><strong>Modo Desafio:</strong> ${days}/30 dias com consistencia.</p>
+      <p><strong>Modo Desafio:</strong> ${days}/30 dias com consistência.</p>
       <div class="progress-line"><span style="width:${done}%"></span></div>
       <p>${message}</p>
     </div>
@@ -628,7 +628,7 @@ function buildLockedMode(vault, now) {
       <div class="locked-mode">
         <p><strong>Modo Bloqueado:</strong> para ver o valor real, inicie um pedido e aguarde 24h.</p>
         <form class="locked-actions lock-form" data-id="${vault.id}" data-action="request">
-          <button type="submit" class="btn btn-ghost">Solicitar visualizacao do saldo</button>
+          <button type="submit" class="btn btn-ghost">Solicitar visualização do saldo</button>
         </form>
       </div>
     `;
@@ -645,7 +645,7 @@ function buildLockedMode(vault, now) {
   if (lockState.type === "unlocked") {
     return `
       <div class="locked-mode">
-        <p><strong>Modo Bloqueado:</strong> visualizacao temporaria ativa.</p>
+        <p><strong>Modo Bloqueado:</strong> visualização temporária ativa.</p>
         <p class="reveal-balance">Saldo visivel por alguns segundos: ${formatBRL(vault.hiddenBalance)}</p>
       </div>
     `;
@@ -655,8 +655,8 @@ function buildLockedMode(vault, now) {
     <div class="locked-mode">
       <p><strong>Modo Bloqueado:</strong> liberado. Reflita antes de visualizar o valor.</p>
       <form class="locked-actions lock-form" data-id="${vault.id}" data-action="unlock">
-        <textarea placeholder="Por que voce precisa ver este valor agora e como vai evitar gastar por impulso?" required></textarea>
-        <button type="submit" class="btn btn-ghost">Liberar visualizacao por 15s</button>
+        <textarea placeholder="Por que você precisa ver este valor agora e como vai evitar gastar por impulso?" required></textarea>
+        <button type="submit" class="btn btn-ghost">Liberar visualização por 15s</button>
       </form>
     </div>
   `;
@@ -688,7 +688,7 @@ function getProgress(balance, goal) {
 
 function getStatusByProgress(progress) {
   if (progress >= 100) {
-    return "Meta concluida";
+    return "Meta concluída";
   }
   if (progress >= 75) {
     return "Meta em reta final";
@@ -696,18 +696,18 @@ function getStatusByProgress(progress) {
   if (progress >= 40) {
     return "Meta em andamento";
   }
-  return "Base da reserva em construcao";
+  return "Base da reserva em construção";
 }
 
 function getMysteryPhrase(progress) {
   if (progress >= 100) {
-    return "Voce blindou esta meta.";
+    return "Você blindou esta meta.";
   }
   if (progress >= 65) {
-    return "Voce esta mais perto do que imagina.";
+    return "Você está mais perto do que imagina.";
   }
   if (progress >= 30) {
-    return "Constancia hoje, tranquilidade amanha.";
+    return "Constância hoje, tranquilidade amanhã.";
   }
   return "Primeiros passos constroem liberdade.";
 }
@@ -723,11 +723,11 @@ function estimateDepositsLeft(vault) {
     : vault.avgDepositExpected;
 
   if (!avg || avg <= 0) {
-    return "Defina um deposito medio";
+    return "Defina um depósito médio";
   }
 
   const missing = Math.ceil(remaining / avg);
-  return `Faltam ${missing} depositos`;
+  return `Faltam ${missing} depósitos`;
 }
 
 function addActiveDay(vault, dateKey) {
@@ -760,7 +760,7 @@ function handleGoalTransition(vault, previousBalance) {
   vault.goalReachedAt = new Date(now).toISOString();
   vault.celebrateUntil = new Date(now + 6000).toISOString();
   feedback.classList.remove("error");
-  feedback.textContent = `Meta batida no cofre "${vault.name}". Valor liberado para visualizacao.`;
+  feedback.textContent = `Meta batida no cofre "${vault.name}". Valor liberado para visualização.`;
   setTimeout(() => {
     renderVaults();
   }, 6100);
@@ -830,7 +830,7 @@ function updateAuthUI() {
   if (currentUser) {
     authGuest.classList.add("hidden");
     authUser.classList.remove("hidden");
-    authUserName.textContent = currentUser.user_metadata?.name || currentUser.email || "Usuario";
+    authUserName.textContent = currentUser.user_metadata?.name || currentUser.email || "Usuário";
   } else {
     authGuest.classList.remove("hidden");
     authUser.classList.add("hidden");
@@ -866,3 +866,4 @@ function escapeHTML(text) {
   div.textContent = text;
   return div.innerHTML;
 }
+

@@ -1,8 +1,8 @@
 ﻿# Banco Ocioso
 
-Aplicacao web com visual motivacional, autenticacao e cofres sincronizados com Supabase.
+Aplicação web com visual motivacional, autenticação e cofres sincronizados com Supabase.
 
-## Configuracao do Supabase (gratis)
+## Configuração do Supabase (grátis)
 
 1. Crie um projeto em https://supabase.com
 2. No painel do projeto, abra `Project Settings` > `API`
@@ -19,9 +19,9 @@ window.SUPABASE_ANON_KEY = "SUA_ANON_KEY";
 5. No Supabase, abra `SQL Editor` e execute o arquivo `supabase-schema.sql`
 6. Em `Authentication` > `Providers` > `Email`:
    - Ative Email/Password
-   - Se quiser login imediato sem confirmar email, desative confirmacao obrigatoria
+   - Se quiser login imediato sem confirmar e-mail, desative confirmação obrigatória
 
-## Publicacao gratuita (GitHub Pages)
+## Publicação gratuita (GitHub Pages)
 
 1. No GitHub, abra o repositorio `luk-ther/banco-ocioso`
 2. Clique em `Settings` > `Pages`
@@ -34,11 +34,12 @@ window.SUPABASE_ANON_KEY = "SUA_ANON_KEY";
 ## Como funciona agora
 
 - Login e cadastro: Supabase Auth
-- Cofres: tabela `public.vaults` com RLS por usuario
+- Cofres: tabela `public.vaults` com RLS por usuário
 - Dados sincronizados entre navegadores/dispositivos da mesma conta
 
 ## Arquivos importantes
 
 - `supabase-config.js`: credenciais do projeto
-- `supabase-schema.sql`: estrutura da tabela e politicas de seguranca
-- `script.js`: integracao Auth + Banco
+- `supabase-schema.sql`: estrutura da tabela e políticas de segurança
+- `script.js`: integração Auth + Banco
+
