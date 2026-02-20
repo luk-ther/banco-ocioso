@@ -207,6 +207,40 @@
     </p>
   </footer>
 
+  <div class="support-widget" aria-live="polite">
+    <button id="supportToggle" class="support-toggle" type="button" aria-expanded="false" aria-controls="supportPanel">
+      Suporte
+    </button>
+
+    <div id="supportPanel" class="support-panel hidden">
+      <div class="support-head">
+        <strong>Fale com o suporte</strong>
+        <button id="supportClose" class="support-close" type="button" aria-label="Fechar suporte">×</button>
+      </div>
+      <p class="support-copy">Envie sua dúvida, sugestão ou problema técnico.</p>
+
+      <form class="support-form" action="https://formsubmit.co/luktheer@gmail.com" method="POST">
+        <input type="hidden" name="_subject" value="Suporte Banco Ocioso" />
+        <input type="hidden" name="_captcha" value="false" />
+        <input type="hidden" name="_template" value="table" />
+
+        <label>
+          Nome
+          <input type="text" name="nome" placeholder="Seu nome" required />
+        </label>
+        <label>
+          E-mail
+          <input type="email" name="email" placeholder="voce@email.com" required />
+        </label>
+        <label>
+          Mensagem
+          <textarea name="mensagem" placeholder="Escreva sua mensagem..." required></textarea>
+        </label>
+        <button class="btn btn-primary" type="submit">Enviar mensagem</button>
+      </form>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="script.js"></script>

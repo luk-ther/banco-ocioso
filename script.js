@@ -22,6 +22,9 @@ const registerForm = document.getElementById("registerForm");
 const logoutBtn = document.getElementById("logoutBtn");
 const menuToggle = document.getElementById("menuToggle");
 const mainNav = document.getElementById("mainNav");
+const supportToggle = document.getElementById("supportToggle");
+const supportPanel = document.getElementById("supportPanel");
+const supportClose = document.getElementById("supportClose");
 
 const vaults = [];
 let currentUser = null;
@@ -45,6 +48,7 @@ revealNodes.forEach((node, index) => {
 });
 setupShortcutScroll();
 setupMobileMenu();
+setupSupportWidget();
 setupAuthUI();
 setupVaultHandlers();
 init();
@@ -823,6 +827,44 @@ function animateVaultCards() {
     card.style.animationDelay = `${Math.min(index * 70, 280)}ms`;
     void card.offsetWidth;
     card.classList.add("card-enter");
+  });
+}
+
+function setupSupportWidget() {
+  if (!supportToggle || !supportPanel || !supportClose) {
+    return;
+  }
+
+  supportToggle.addEventListener("click", () => {
+    const isHidden = supportPanel.classList.contains("hidden");
+    supportPanel.classList.toggle("hidden", !isHidden);
+    supportToggle.setAttribute("aria-expanded", String(isHidden));
+  });
+
+  supportClose.addEventListener("click", () => {
+    supportPanel.classList.add("hidden");
+    supportToggle.setAttribute("aria-expanded", "false");
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      supportPanel.classList.add("hidden");
+      supportToggle.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Node)) {
+      return;
+    }
+    if (supportPanel.classList.contains("hidden")) {
+      return;
+    }
+    if (!supportPanel.contains(target) && !supportToggle.contains(target)) {
+      supportPanel.classList.add("hidden");
+      supportToggle.setAttribute("aria-expanded", "false");
+    }
   });
 }
 
