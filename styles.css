@@ -100,6 +100,16 @@ a {
   font-size: 0.95rem;
 }
 
+.menu-toggle {
+  display: none;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 0.55rem 0.9rem;
+  font-weight: 700;
+}
+
 .nav a {
   transition: color 0.25s ease;
 }
@@ -445,6 +455,10 @@ textarea:focus {
   box-shadow: var(--shadow);
 }
 
+.vault-card.card-enter {
+  animation: cardRise 0.45s ease both;
+}
+
 .goal-reached {
   border-color: rgba(94, 255, 181, 0.55);
   box-shadow: 0 18px 40px rgba(16, 99, 78, 0.35);
@@ -635,6 +649,17 @@ textarea:focus {
   }
 }
 
+@keyframes cardRise {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 960px) {
   .feature-grid,
   .pillars,
@@ -648,20 +673,64 @@ textarea:focus {
 
   .header {
     border-radius: 16px;
-    padding: 0.85rem 1rem;
-    flex-wrap: wrap;
-    gap: 0.6rem;
+    padding: 0.75rem 0.85rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.55rem;
+    align-items: center;
+  }
+
+  .menu-toggle {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
   }
 
   .nav {
+    display: none;
+    grid-column: 1 / -1;
     width: 100%;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.7rem;
+    margin-top: 0.2rem;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 0.55rem;
+    background: rgba(10, 12, 17, 0.95);
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .nav.is-open {
+    display: flex;
+  }
+
+  .nav a {
+    padding: 0.62rem 0.7rem;
+    border-radius: 10px;
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+  }
+
+  .nav a:hover {
+    background: rgba(255, 255, 255, 0.04);
   }
 
   .hero {
-    padding-top: 3.8rem;
+    padding-top: 2.6rem;
+    padding-bottom: 2.2rem;
+  }
+
+  .hero-text {
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  .btn {
+    min-height: 44px;
+  }
+
+  .section {
+    margin-top: 2.5rem;
   }
 
   .deposit-form {

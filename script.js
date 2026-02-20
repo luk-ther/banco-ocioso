@@ -20,6 +20,8 @@ const tabRegister = document.getElementById("tabRegister");
 const loginForm = document.getElementById("loginForm");
 const registerForm = document.getElementById("registerForm");
 const logoutBtn = document.getElementById("logoutBtn");
+const menuToggle = document.getElementById("menuToggle");
+const mainNav = document.getElementById("mainNav");
 
 const vaults = [];
 let currentUser = null;
@@ -37,8 +39,12 @@ const observer = new IntersectionObserver(
   { threshold: 0.2 }
 );
 
-revealNodes.forEach((node) => observer.observe(node));
+revealNodes.forEach((node, index) => {
+  node.style.transitionDelay = `${Math.min(index * 80, 320)}ms`;
+  observer.observe(node);
+});
 setupShortcutScroll();
+setupMobileMenu();
 setupAuthUI();
 setupVaultHandlers();
 init();
@@ -184,7 +190,7 @@ function setupAuthUI() {
     if (data.session) {
       setAuthMessage("Conta criada e login efetuado.");
     } else {
-      setAuthMessage("Conta criada. Verifique seu e-mail para confirmar o acesso.");
+      setAuthMessage("Conta criada. Agora faça login com seu acesso.");
     }
 
     registerForm.reset();
@@ -374,6 +380,7 @@ function renderVaults() {
     .join("");
 
   attachVaultEvents();
+  animateVaultCards();
 }
 
 function attachVaultEvents() {
@@ -779,7 +786,43 @@ function setupShortcutScroll() {
       void target.offsetWidth;
       target.classList.add("section-focus");
       setTimeout(() => target.classList.remove("section-focus"), 900);
+      closeMobileMenu();
     });
+  });
+}
+
+function setupMobileMenu() {
+  if (!menuToggle || !mainNav) {
+    return;
+  }
+
+  menuToggle.addEventListener("click", () => {
+    const isOpen = mainNav.classList.toggle("is-open");
+    menuToggle.setAttribute("aria-expanded", String(isOpen));
+  });
+
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 960) {
+      closeMobileMenu();
+    }
+  });
+}
+
+function closeMobileMenu() {
+  if (!menuToggle || !mainNav) {
+    return;
+  }
+  mainNav.classList.remove("is-open");
+  menuToggle.setAttribute("aria-expanded", "false");
+}
+
+function animateVaultCards() {
+  const cards = vaultList.querySelectorAll(".vault-card");
+  cards.forEach((card, index) => {
+    card.classList.remove("card-enter");
+    card.style.animationDelay = `${Math.min(index * 70, 280)}ms`;
+    void card.offsetWidth;
+    card.classList.add("card-enter");
   });
 }
 
