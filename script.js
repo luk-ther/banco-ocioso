@@ -366,7 +366,7 @@ function renderVaults() {
         <div class="secret">
           <p>
             Valor guardado neste cofre:
-            <strong>${isGoalReached ? formatBRL(vault.hiddenBalance) : "••••••••"}</strong>
+            <strong>${isGoalReached ? formatBRL(vault.hiddenBalance) : "R$••••••"}</strong>
           </p>
           ${isGoalReached ? "<p class=\"goal-unlock\">Meta concluída: valor liberado automaticamente.</p>" : ""}
         </div>
