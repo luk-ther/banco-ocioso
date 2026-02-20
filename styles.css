@@ -675,6 +675,32 @@ textarea:focus {
   gap: 0.65rem;
 }
 
+.support-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1rem;
+  transform: translateX(-50%);
+  z-index: 45;
+  border: 1px solid rgba(94, 255, 181, 0.6);
+  background: rgba(8, 22, 18, 0.96);
+  color: #d7ffe8;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  animation: toastIn 0.25s ease;
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
 @media (max-width: 960px) {
   .support-widget {
     right: 0.7rem;
@@ -689,6 +715,11 @@ textarea:focus {
 
   .support-panel {
     width: 100%;
+  }
+
+  .support-toast {
+    width: calc(100vw - 1.4rem);
+    text-align: center;
   }
 }
 

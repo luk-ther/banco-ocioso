@@ -219,7 +219,7 @@
       </div>
       <p class="support-copy">Envie sua dúvida, sugestão ou problema técnico.</p>
 
-      <form class="support-form" action="https://formsubmit.co/luktheer@gmail.com" method="POST">
+      <form id="supportForm" class="support-form" action="https://formsubmit.co/luktheer@gmail.com" method="POST" target="supportFrame">
         <input type="hidden" name="_subject" value="Suporte Banco Ocioso" />
         <input type="hidden" name="_captcha" value="false" />
         <input type="hidden" name="_template" value="table" />
@@ -239,6 +239,10 @@
         <button class="btn btn-primary" type="submit">Enviar mensagem</button>
       </form>
     </div>
+  </div>
+  <iframe id="supportFrame" name="supportFrame" class="hidden" title="Envio de suporte"></iframe>
+  <div id="supportToast" class="support-toast hidden" role="status" aria-live="polite">
+    Mensagem enviada com sucesso. Obrigado pelo contato.
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

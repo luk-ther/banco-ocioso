@@ -25,6 +25,9 @@ const mainNav = document.getElementById("mainNav");
 const supportToggle = document.getElementById("supportToggle");
 const supportPanel = document.getElementById("supportPanel");
 const supportClose = document.getElementById("supportClose");
+const supportForm = document.getElementById("supportForm");
+const supportFrame = document.getElementById("supportFrame");
+const supportToast = document.getElementById("supportToast");
 
 const vaults = [];
 let currentUser = null;
@@ -835,6 +838,9 @@ function setupSupportWidget() {
     return;
   }
 
+  let supportSubmitPending = false;
+  let supportToastTimer = null;
+
   supportToggle.addEventListener("click", () => {
     const isHidden = supportPanel.classList.contains("hidden");
     supportPanel.classList.toggle("hidden", !isHidden);
@@ -866,6 +872,32 @@ function setupSupportWidget() {
       supportToggle.setAttribute("aria-expanded", "false");
     }
   });
+
+  if (supportForm && supportFrame && supportToast) {
+    supportForm.addEventListener("submit", () => {
+      supportSubmitPending = true;
+    });
+
+    supportFrame.addEventListener("load", () => {
+      if (!supportSubmitPending) {
+        return;
+      }
+
+      supportSubmitPending = false;
+      supportForm.reset();
+      supportPanel.classList.add("hidden");
+      supportToggle.setAttribute("aria-expanded", "false");
+      supportToast.classList.remove("hidden");
+
+      if (supportToastTimer) {
+        clearTimeout(supportToastTimer);
+      }
+
+      supportToastTimer = setTimeout(() => {
+        supportToast.classList.add("hidden");
+      }, 4200);
+    });
+  }
 }
 
 function updateAuthUI() {
@@ -908,4 +940,3 @@ function escapeHTML(text) {
   div.textContent = text;
   return div.innerHTML;
 }
-
