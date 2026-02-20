@@ -638,6 +638,11 @@ textarea:focus {
   box-shadow: 0 14px 32px rgba(87, 255, 190, 0.35);
 }
 
+.support-toggle.is-active {
+  transform: translateY(-1px) scale(1.04);
+  box-shadow: 0 14px 30px rgba(12, 224, 255, 0.5);
+}
+
 .support-panel {
   width: min(360px, calc(100vw - 1.4rem));
   border: 1px solid var(--line);
@@ -645,6 +650,19 @@ textarea:focus {
   background: linear-gradient(170deg, #131722, #0f1117);
   box-shadow: var(--shadow);
   padding: 0.9rem;
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+  transform-origin: bottom right;
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 0.24s ease, transform 0.24s ease, visibility 0.24s ease;
+}
+
+.support-panel.is-open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+  visibility: visible;
 }
 
 .support-head {
@@ -730,6 +748,7 @@ textarea:focus {
 
   .support-panel {
     width: min(360px, calc(100vw - 1.4rem));
+    transform-origin: bottom right;
   }
 
   .support-toast {

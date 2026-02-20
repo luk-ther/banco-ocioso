@@ -842,20 +842,19 @@ function setupSupportWidget() {
   let supportToastTimer = null;
 
   supportToggle.addEventListener("click", () => {
-    const isHidden = supportPanel.classList.contains("hidden");
-    supportPanel.classList.toggle("hidden", !isHidden);
-    supportToggle.setAttribute("aria-expanded", String(isHidden));
+    const isOpen = supportPanel.classList.toggle("is-open");
+    supportPanel.setAttribute("aria-hidden", String(!isOpen));
+    supportToggle.setAttribute("aria-expanded", String(isOpen));
+    supportToggle.classList.toggle("is-active", isOpen);
   });
 
   supportClose.addEventListener("click", () => {
-    supportPanel.classList.add("hidden");
-    supportToggle.setAttribute("aria-expanded", "false");
+    closeSupportWidget();
   });
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
-      supportPanel.classList.add("hidden");
-      supportToggle.setAttribute("aria-expanded", "false");
+      closeSupportWidget();
     }
   });
 
@@ -864,12 +863,11 @@ function setupSupportWidget() {
     if (!(target instanceof Node)) {
       return;
     }
-    if (supportPanel.classList.contains("hidden")) {
+    if (!supportPanel.classList.contains("is-open")) {
       return;
     }
     if (!supportPanel.contains(target) && !supportToggle.contains(target)) {
-      supportPanel.classList.add("hidden");
-      supportToggle.setAttribute("aria-expanded", "false");
+      closeSupportWidget();
     }
   });
 
@@ -885,8 +883,7 @@ function setupSupportWidget() {
 
       supportSubmitPending = false;
       supportForm.reset();
-      supportPanel.classList.add("hidden");
-      supportToggle.setAttribute("aria-expanded", "false");
+      closeSupportWidget();
       supportToast.classList.remove("hidden");
 
       if (supportToastTimer) {
@@ -898,6 +895,16 @@ function setupSupportWidget() {
       }, 4200);
     });
   }
+}
+
+function closeSupportWidget() {
+  if (!supportToggle || !supportPanel) {
+    return;
+  }
+  supportPanel.classList.remove("is-open");
+  supportPanel.setAttribute("aria-hidden", "true");
+  supportToggle.setAttribute("aria-expanded", "false");
+  supportToggle.classList.remove("is-active");
 }
 
 function updateAuthUI() {
