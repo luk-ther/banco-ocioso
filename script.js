@@ -466,19 +466,19 @@ function renderVaults() {
         <div class="motivation-grid">
           <div class="motiv-box">
             <span class="motiv-label">Blocos</span>
-            <span class="motiv-value">?? ${blocksDone} de 10 concluídos</span>
+            <span class="motiv-value">🧱 ${blocksDone} de 10 concluídos</span>
           </div>
           <div class="motiv-box">
             <span class="motiv-label">Status</span>
-            <span class="motiv-value">?? ${status}</span>
+            <span class="motiv-value">🟢 ${status}</span>
           </div>
           <div class="motiv-box">
             <span class="motiv-label">Foco</span>
-            <span class="motiv-value">?? ${depositsLeft}</span>
+            <span class="motiv-value">💵 ${depositsLeft}</span>
           </div>
           <div class="motiv-box">
             <span class="motiv-label">Reflexão</span>
-            <span class="motiv-value">${phrase}</span>
+            <span class="motiv-value">💭 ${phrase}</span>
           </div>
         </div>
 
@@ -1315,4 +1315,3 @@ function escapeHTML(text) {
   div.textContent = text;
   return div.innerHTML;
 }
-
