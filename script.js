@@ -866,31 +866,19 @@ function setupMoneyInputs(scope = document) {
   const moneyInputs = scope.querySelectorAll(".money-input");
   moneyInputs.forEach((input) => {
     if (input.dataset.moneyBound === "1") {
-      adjustMoneyInputWidth(input);
       return;
     }
 
     input.dataset.moneyBound = "1";
-    adjustMoneyInputWidth(input);
 
     input.addEventListener("input", () => {
       const digits = String(input.value || "").replace(/\D/g, "").slice(0, 12);
       if (!digits) {
         input.value = "";
-        adjustMoneyInputWidth(input);
         return;
       }
 
       input.value = formatCurrencyFromDigits(digits);
-      adjustMoneyInputWidth(input);
-    });
-
-    input.addEventListener("focus", () => {
-      adjustMoneyInputWidth(input);
-    });
-
-    input.addEventListener("blur", () => {
-      adjustMoneyInputWidth(input);
     });
   });
 }
@@ -913,13 +901,6 @@ function parseCurrencyInput(value) {
     return 0;
   }
   return Number(digits) / 100;
-}
-
-function adjustMoneyInputWidth(input) {
-  const min = 11;
-  const max = 24;
-  const current = Math.max(min, Math.min(max, String(input.value || input.placeholder || "").length + 1));
-  input.style.width = `${current}ch`;
 }
 
 function sanitizeVault(input, fallbackId = "") {

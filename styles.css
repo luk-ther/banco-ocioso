@@ -473,9 +473,7 @@ textarea {
 }
 
 .money-input {
-  width: 12ch;
-  min-width: 11ch;
-  max-width: 100%;
+  width: 100%;
 }
 
 textarea {
