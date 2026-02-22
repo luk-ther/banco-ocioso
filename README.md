@@ -35,11 +35,16 @@ window.SUPABASE_ANON_KEY = "SUA_ANON_KEY";
 
 - Login e cadastro: Supabase Auth
 - Cofres: tabela `public.vaults` com RLS por usuário
+- Planos: tabela `public.user_plans` com limite por conta
+  - Grátis: até 3 cofres
+  - Básico `R$ 9,90/mês`: cofres ilimitados
+  - Anual `R$ 89,90/ano`: cofres ilimitados
+  - Avulso `R$ 2,99`: +1 cofre por compra
 - Dados sincronizados entre navegadores/dispositivos da mesma conta
 
 ## Arquivos importantes
 
 - `supabase-config.js`: credenciais do projeto
-- `supabase-schema.sql`: estrutura da tabela e políticas de segurança
+- `supabase-schema.sql`: estrutura das tabelas e políticas de segurança
 - `script.js`: integração Auth + Banco
 

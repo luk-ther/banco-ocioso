@@ -10,6 +10,11 @@ const createVaultBtn = document.getElementById("createVaultBtn");
 const vaultForm = document.getElementById("vaultForm");
 const feedback = document.getElementById("formFeedback");
 const vaultList = document.getElementById("vaultList");
+const planStatus = document.getElementById("planStatus");
+const activateBasicPlanBtn = document.getElementById("activateBasicPlan");
+const activateAnnualPlanBtn = document.getElementById("activateAnnualPlan");
+const buyExtraVaultBtn = document.getElementById("buyExtraVaultBtn");
+const resetPlanBtn = document.getElementById("resetPlanBtn");
 
 const authGuest = document.getElementById("authGuest");
 const authUser = document.getElementById("authUser");
@@ -34,6 +39,19 @@ let currentUser = null;
 let supabaseClient = null;
 let supabaseReady = false;
 
+const FREE_VAULT_LIMIT = 3;
+const PLAN_TIERS = {
+  FREE: "free",
+  BASIC: "basic_monthly",
+  ANNUAL: "annual",
+};
+const PLAN_LABELS = {
+  [PLAN_TIERS.FREE]: "Grátis",
+  [PLAN_TIERS.BASIC]: "Básico (R$ 9,90/mês)",
+  [PLAN_TIERS.ANNUAL]: "Anual (R$ 89,90/ano)",
+};
+let userPlan = createDefaultPlan();
+
 const observer = new IntersectionObserver(
   (entries) => {
     entries.forEach((entry) => {
@@ -54,6 +72,7 @@ setupMobileMenu();
 setupSupportWidget();
 setupAuthUI();
 setupVaultHandlers();
+setupPlanHandlers();
 init();
 
 async function init() {
@@ -75,22 +94,27 @@ async function init() {
   currentUser = data?.session?.user || null;
   if (currentUser) {
     await loadVaultsFromDb();
+    await loadUserPlanFromDb();
   }
 
   supabaseClient.auth.onAuthStateChange(async (_event, session) => {
     currentUser = session?.user || null;
     if (currentUser) {
       await loadVaultsFromDb();
+      await loadUserPlanFromDb();
     } else {
       vaults.splice(0, vaults.length);
+      userPlan = createDefaultPlan();
     }
     updateAuthUI();
     updateVaultAccessState();
+    updatePlanUI();
     renderVaults();
   });
 
   updateAuthUI();
   updateVaultAccessState();
+  updatePlanUI();
   renderVaults();
 }
 
@@ -247,6 +271,12 @@ function setupVaultHandlers() {
       return;
     }
 
+    const limitInfo = getCurrentLimitInfo();
+    if (!limitInfo.canCreate) {
+      showError(`Limite atingido: ${limitInfo.message}`);
+      return;
+    }
+
     const name = document.getElementById("vaultName").value.trim();
     const goal = Number(document.getElementById("vaultGoal").value);
     const initialDepositRaw = document.getElementById("vaultDeposit").value;
@@ -297,10 +327,81 @@ function setupVaultHandlers() {
     document.getElementById("challengeMode").checked = true;
     document.getElementById("lockedMode").checked = true;
     updateVaultAccessState();
+    updatePlanUI();
     feedback.classList.remove("error");
     feedback.textContent = `Cofre "${vault.name}" criado com sucesso.`;
     renderVaults();
   });
+}
+
+function setupPlanHandlers() {
+  if (!activateBasicPlanBtn || !activateAnnualPlanBtn || !buyExtraVaultBtn || !resetPlanBtn) {
+    return;
+  }
+
+  activateBasicPlanBtn.addEventListener("click", async () => {
+    await applyPlanChange({
+      planTier: PLAN_TIERS.BASIC,
+      extraVaults: 0,
+    }, "Plano Básico ativado. Cofres ilimitados liberados.");
+  });
+
+  activateAnnualPlanBtn.addEventListener("click", async () => {
+    await applyPlanChange({
+      planTier: PLAN_TIERS.ANNUAL,
+      extraVaults: 0,
+    }, "Plano Anual ativado. Cofres ilimitados liberados.");
+  });
+
+  buyExtraVaultBtn.addEventListener("click", async () => {
+    if (isUnlimitedPlan(userPlan.planTier)) {
+      feedback.classList.remove("error");
+      feedback.textContent = "Seu plano atual já tem cofres ilimitados.";
+      return;
+    }
+
+    await applyPlanChange({
+      planTier: PLAN_TIERS.FREE,
+      extraVaults: Math.max(0, Number(userPlan.extraVaults) || 0) + 1,
+    }, "1 cofre extra adicionado com sucesso.");
+  });
+
+  resetPlanBtn.addEventListener("click", async () => {
+    await applyPlanChange({
+      planTier: PLAN_TIERS.FREE,
+      extraVaults: 0,
+    }, "Plano redefinido para Grátis (3 cofres).");
+  });
+}
+
+async function applyPlanChange(nextPlan, successMessage) {
+  if (!supabaseReady) {
+    showError("Supabase não configurado.");
+    return;
+  }
+
+  if (!currentUser) {
+    showError("Entre na sua conta para alterar o plano.");
+    return;
+  }
+
+  const next = sanitizeUserPlan({
+    plan_tier: nextPlan.planTier,
+    extra_vaults: nextPlan.extraVaults,
+    updated_at: new Date().toISOString(),
+  });
+
+  const { error } = await upsertUserPlan(next);
+  if (error) {
+    showError(error.message);
+    return;
+  }
+
+  userPlan = next;
+  updatePlanUI();
+  updateVaultAccessState();
+  feedback.classList.remove("error");
+  feedback.textContent = successMessage;
 }
 
 function renderVaults() {
@@ -420,6 +521,8 @@ function attachVaultEvents() {
         vaults.splice(index, 1);
       }
 
+      updateVaultAccessState();
+      updatePlanUI();
       feedback.classList.remove("error");
       feedback.textContent = `Meta "${vault.name}" excluída com sucesso.`;
       renderVaults();
@@ -537,7 +640,8 @@ function attachVaultEvents() {
 }
 
 function updateVaultAccessState() {
-  createVaultBtn.disabled = !supabaseReady || !rulesCheckbox.checked || !currentUser;
+  const limitInfo = getCurrentLimitInfo();
+  createVaultBtn.disabled = !supabaseReady || !rulesCheckbox.checked || !currentUser || !limitInfo.canCreate;
   const fields = vaultForm.querySelectorAll("input, button");
   fields.forEach((field) => {
     if (field.id === "createVaultBtn") {
@@ -555,6 +659,12 @@ function updateVaultAccessState() {
   if (!currentUser) {
     feedback.classList.remove("error");
     feedback.textContent = "Entre na sua conta para criar e salvar cofres.";
+    return;
+  }
+
+  if (!limitInfo.canCreate) {
+    feedback.classList.add("error");
+    feedback.textContent = `Limite atingido: ${limitInfo.message}`;
   }
 }
 
@@ -575,6 +685,163 @@ async function loadVaultsFromDb() {
     const vault = sanitizeVault(row.payload, row.id);
     if (vault) {
       vaults.push(vault);
+    }
+  });
+
+  updateVaultAccessState();
+  updatePlanUI();
+}
+
+async function loadUserPlanFromDb() {
+  userPlan = createDefaultPlan();
+
+  if (!currentUser) {
+    updatePlanUI();
+    return;
+  }
+
+  const { error: upsertError } = await supabaseClient
+    .from("user_plans")
+    .upsert(
+      {
+        user_id: currentUser.id,
+      },
+      {
+        onConflict: "user_id",
+      }
+    );
+
+  if (upsertError) {
+    showError(`Não foi possível carregar planos. Atualize o schema no Supabase. Detalhe: ${upsertError.message}`);
+    updatePlanUI();
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from("user_plans")
+    .select("plan_tier, extra_vaults, updated_at")
+    .eq("user_id", currentUser.id)
+    .maybeSingle();
+
+  if (error) {
+    showError(`Erro ao buscar plano do usuário: ${error.message}`);
+    updatePlanUI();
+    return;
+  }
+
+  userPlan = sanitizeUserPlan(data);
+  updatePlanUI();
+  updateVaultAccessState();
+}
+
+async function upsertUserPlan(plan) {
+  const { error } = await supabaseClient
+    .from("user_plans")
+    .upsert(
+      {
+        user_id: currentUser.id,
+        plan_tier: plan.planTier,
+        extra_vaults: plan.extraVaults,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: "user_id",
+      }
+    );
+
+  return { error };
+}
+
+function createDefaultPlan() {
+  return {
+    planTier: PLAN_TIERS.FREE,
+    extraVaults: 0,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function sanitizeUserPlan(input) {
+  const planTierRaw = String(input?.plan_tier || "").trim();
+  const planTier = Object.values(PLAN_TIERS).includes(planTierRaw) ? planTierRaw : PLAN_TIERS.FREE;
+  const extraVaultsRaw = Number(input?.extra_vaults);
+  const extraVaults = Number.isFinite(extraVaultsRaw) && extraVaultsRaw > 0 ? Math.floor(extraVaultsRaw) : 0;
+  const updatedAt = typeof input?.updated_at === "string" ? input.updated_at : new Date().toISOString();
+
+  return {
+    planTier,
+    extraVaults,
+    updatedAt,
+  };
+}
+
+function isUnlimitedPlan(planTier) {
+  return planTier === PLAN_TIERS.BASIC || planTier === PLAN_TIERS.ANNUAL;
+}
+
+function getCurrentLimitInfo() {
+  if (!currentUser) {
+    return {
+      canCreate: false,
+      message: "faça login para criar cofres.",
+      used: vaults.length,
+      max: FREE_VAULT_LIMIT,
+    };
+  }
+
+  if (isUnlimitedPlan(userPlan.planTier)) {
+    return {
+      canCreate: true,
+      message: "seu plano possui cofres ilimitados.",
+      used: vaults.length,
+      max: Number.POSITIVE_INFINITY,
+    };
+  }
+
+  const max = FREE_VAULT_LIMIT + Math.max(0, Number(userPlan.extraVaults) || 0);
+  const canCreate = vaults.length < max;
+
+  return {
+    canCreate,
+    message: `você já usa ${vaults.length}/${max} cofres no plano atual.`,
+    used: vaults.length,
+    max,
+  };
+}
+
+function updatePlanUI() {
+  if (!planStatus) {
+    return;
+  }
+
+  if (!supabaseReady) {
+    planStatus.classList.add("error");
+    planStatus.textContent = "Configure o Supabase para ativar planos e limites.";
+    togglePlanButtons(true);
+    return;
+  }
+
+  if (!currentUser) {
+    planStatus.classList.remove("error");
+    planStatus.textContent = "Entre na sua conta para ver e alterar seu plano.";
+    togglePlanButtons(true);
+    return;
+  }
+
+  const limitInfo = getCurrentLimitInfo();
+  const planName = PLAN_LABELS[userPlan.planTier] || PLAN_LABELS[PLAN_TIERS.FREE];
+  const limitText = Number.isFinite(limitInfo.max) ? `${limitInfo.used}/${limitInfo.max}` : `${limitInfo.used}/ilimitado`;
+
+  planStatus.classList.toggle("error", !limitInfo.canCreate);
+  planStatus.textContent = `Plano atual: ${planName}. Cofres em uso: ${limitText}.`;
+
+  togglePlanButtons(false);
+  buyExtraVaultBtn.disabled = isUnlimitedPlan(userPlan.planTier);
+}
+
+function togglePlanButtons(disabled) {
+  [activateBasicPlanBtn, activateAnnualPlanBtn, buyExtraVaultBtn, resetPlanBtn].forEach((button) => {
+    if (button) {
+      button.disabled = disabled;
     }
   });
 }

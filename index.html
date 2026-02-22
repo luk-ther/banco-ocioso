@@ -160,6 +160,37 @@
         <p>Progresso sem mostrar dinheiro: percentual, blocos e ritmo da meta.</p>
       </div>
 
+      <section class="panel plan-panel" aria-labelledby="planosTitulo">
+        <div class="plan-head">
+          <h3 id="planosTitulo">Planos e limites</h3>
+          <p id="planStatus" class="plan-status">Entre na sua conta para ver seus limites de cofres.</p>
+        </div>
+        <div class="plan-grid">
+          <article class="plan-card">
+            <h4>Plano Básico</h4>
+            <p class="plan-price">R$ 9,90/mês</p>
+            <p>Cofres ilimitados enquanto o plano estiver ativo.</p>
+            <button id="activateBasicPlan" class="btn btn-ghost" type="button">Ativar Básico</button>
+          </article>
+          <article class="plan-card">
+            <h4>Plano Anual</h4>
+            <p class="plan-price">R$ 89,90/ano</p>
+            <p>Cofres ilimitados com melhor custo anual.</p>
+            <button id="activateAnnualPlan" class="btn btn-ghost" type="button">Ativar Anual</button>
+          </article>
+          <article class="plan-card">
+            <h4>Cofre avulso</h4>
+            <p class="plan-price">R$ 2,99 por cofre</p>
+            <p>Ideal para quem quer manter no plano grátis e expandir aos poucos.</p>
+            <button id="buyExtraVaultBtn" class="btn btn-ghost" type="button">Comprar +1 cofre</button>
+          </article>
+        </div>
+        <div class="plan-actions">
+          <button id="resetPlanBtn" class="btn btn-ghost" type="button">Voltar para plano grátis</button>
+          <small>Observação: o checkout de pagamento ainda não está integrado. Esta tela aplica as regras de acesso por plano.</small>
+        </div>
+      </section>
+
       <form id="vaultForm" class="panel" novalidate>
         <div class="field-grid field-grid-4">
           <label>
