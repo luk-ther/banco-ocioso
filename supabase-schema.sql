@@ -11,7 +11,7 @@ create table if not exists public.vaults (
 
 create table if not exists public.user_plans (
   user_id uuid primary key references auth.users (id) on delete cascade,
-  plan_tier text not null default 'free' check (plan_tier in ('free', 'basic_monthly', 'annual')),
+  plan_tier text not null default 'free' check (plan_tier in ('free', 'basic_monthly', 'annual', 'fixed')),
   extra_vaults integer not null default 0 check (extra_vaults >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -47,7 +47,7 @@ with check (
         where up.user_id = auth.uid()
       ),
       'free'
-    ) in ('basic_monthly', 'annual')
+    ) in ('basic_monthly', 'annual', 'fixed')
     or
     (
       select count(*)

@@ -399,7 +399,7 @@ main {
 
 .plan-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.85rem;
 }
 
@@ -470,6 +470,12 @@ textarea {
   padding: 0.75rem 0.85rem;
   font: inherit;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.money-input {
+  width: 12ch;
+  min-width: 11ch;
+  max-width: 100%;
 }
 
 textarea {

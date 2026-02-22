@@ -1,4 +1,4 @@
-﻿# Banco Ocioso
+# Banco Ocioso
 
 Aplicação web com visual motivacional, autenticação e cofres sincronizados com Supabase.
 
@@ -37,9 +37,8 @@ window.SUPABASE_ANON_KEY = "SUA_ANON_KEY";
 - Cofres: tabela `public.vaults` com RLS por usuário
 - Planos: tabela `public.user_plans` com limite por conta
   - Grátis: até 3 cofres
-  - Básico `R$ 9,90/mês`: cofres ilimitados
-  - Anual `R$ 89,90/ano`: cofres ilimitados
-  - Avulso `R$ 2,99`: +1 cofre por compra
+  - Básico `$ 9,90/mês`: cofres ilimitados
+  - Anual `$ 89,90/ano`: cofres ilimitados`r`n  - Fixo `$ 209,90`: cofres ilimitados (pagamento único)`r`n  - Avulso `$ 2,99`: +1 cofre por compra
 - Dados sincronizados entre navegadores/dispositivos da mesma conta
 
 ## Arquivos importantes

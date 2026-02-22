@@ -174,13 +174,19 @@
           </article>
           <article class="plan-card">
             <h4>Plano Anual</h4>
-            <p class="plan-price">R$ 89,90/ano</p>
+            <p class="plan-price">$ 89,90/ano</p>
             <p>Cofres ilimitados com melhor custo anual.</p>
             <button id="activateAnnualPlan" class="btn btn-ghost" type="button">Ativar Anual</button>
           </article>
           <article class="plan-card">
+            <h4>Plano Fixo</h4>
+            <p class="plan-price">$ 209,90 (pagamento único)</p>
+            <p>Acesso vitalício com cofres ilimitados.</p>
+            <button id="activateFixedPlan" class="btn btn-ghost" type="button">Ativar Fixo</button>
+          </article>
+          <article class="plan-card">
             <h4>Cofre avulso</h4>
-            <p class="plan-price">R$ 2,99 por cofre</p>
+            <p class="plan-price">$ 2,99 por cofre</p>
             <p>Ideal para quem quer manter no plano grátis e expandir aos poucos.</p>
             <button id="buyExtraVaultBtn" class="btn btn-ghost" type="button">Comprar +1 cofre</button>
           </article>
@@ -198,16 +204,16 @@
             <input id="vaultName" type="text" placeholder="Ex.: Reserva de Emergência" required />
           </label>
           <label>
-            Meta (R$)
-            <input id="vaultGoal" type="number" min="1" step="0.01" placeholder="3000" required />
+            Meta ($)
+            <input id="vaultGoal" class="money-input" type="text" inputmode="numeric" autocomplete="off" placeholder="$ 0,00" required />
           </label>
           <label>
-            Aporte inicial (R$)
-            <input id="vaultDeposit" type="number" min="0" step="0.01" placeholder="0" />
+            Aporte inicial ($)
+            <input id="vaultDeposit" class="money-input" type="text" inputmode="numeric" autocomplete="off" placeholder="$ 0,00" />
           </label>
           <label>
-            Depósito médio esperado (R$)
-            <input id="vaultAvgDeposit" type="number" min="0.01" step="0.01" placeholder="200" required />
+            Depósito médio esperado ($)
+            <input id="vaultAvgDeposit" class="money-input" type="text" inputmode="numeric" autocomplete="off" placeholder="$ 0,00" required />
           </label>
         </div>
 

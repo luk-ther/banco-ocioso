@@ -1,8 +1,12 @@
-﻿const formatBRL = (value) =>
-  new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
+const formatBRL = (value) => {
+  const safeValue = Number.isFinite(Number(value)) ? Number(value) : 0;
+  const absolute = Math.abs(safeValue);
+  const fixed = absolute.toFixed(2);
+  const [intPart, decimalPart] = fixed.split(".");
+  const withThousands = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const prefix = safeValue < 0 ? "-$ " : "$ ";
+  return `${prefix}${withThousands},${decimalPart}`;
+};
 
 const revealNodes = document.querySelectorAll(".reveal");
 const rulesCheckbox = document.getElementById("confirmRules");
@@ -13,6 +17,7 @@ const vaultList = document.getElementById("vaultList");
 const planStatus = document.getElementById("planStatus");
 const activateBasicPlanBtn = document.getElementById("activateBasicPlan");
 const activateAnnualPlanBtn = document.getElementById("activateAnnualPlan");
+const activateFixedPlanBtn = document.getElementById("activateFixedPlan");
 const buyExtraVaultBtn = document.getElementById("buyExtraVaultBtn");
 const resetPlanBtn = document.getElementById("resetPlanBtn");
 
@@ -44,11 +49,13 @@ const PLAN_TIERS = {
   FREE: "free",
   BASIC: "basic_monthly",
   ANNUAL: "annual",
+  FIXED: "fixed",
 };
 const PLAN_LABELS = {
   [PLAN_TIERS.FREE]: "Grátis",
-  [PLAN_TIERS.BASIC]: "Básico (R$ 9,90/mês)",
-  [PLAN_TIERS.ANNUAL]: "Anual (R$ 89,90/ano)",
+  [PLAN_TIERS.BASIC]: "Básico ($ 9,90/mês)",
+  [PLAN_TIERS.ANNUAL]: "Anual ($ 89,90/ano)",
+  [PLAN_TIERS.FIXED]: "Fixo ($ 209,90)",
 };
 let userPlan = createDefaultPlan();
 
@@ -73,6 +80,7 @@ setupSupportWidget();
 setupAuthUI();
 setupVaultHandlers();
 setupPlanHandlers();
+setupMoneyInputs();
 init();
 
 async function init() {
@@ -278,10 +286,10 @@ function setupVaultHandlers() {
     }
 
     const name = document.getElementById("vaultName").value.trim();
-    const goal = Number(document.getElementById("vaultGoal").value);
+    const goal = parseCurrencyInput(document.getElementById("vaultGoal").value);
     const initialDepositRaw = document.getElementById("vaultDeposit").value;
-    const avgDepositExpected = Number(document.getElementById("vaultAvgDeposit").value);
-    const initialDeposit = initialDepositRaw ? Number(initialDepositRaw) : 0;
+    const avgDepositExpected = parseCurrencyInput(document.getElementById("vaultAvgDeposit").value);
+    const initialDeposit = parseCurrencyInput(initialDepositRaw);
     const challengeMode = document.getElementById("challengeMode").checked;
     const lockedMode = document.getElementById("lockedMode").checked;
 
@@ -335,7 +343,7 @@ function setupVaultHandlers() {
 }
 
 function setupPlanHandlers() {
-  if (!activateBasicPlanBtn || !activateAnnualPlanBtn || !buyExtraVaultBtn || !resetPlanBtn) {
+  if (!activateBasicPlanBtn || !activateAnnualPlanBtn || !activateFixedPlanBtn || !buyExtraVaultBtn || !resetPlanBtn) {
     return;
   }
 
@@ -351,6 +359,13 @@ function setupPlanHandlers() {
       planTier: PLAN_TIERS.ANNUAL,
       extraVaults: 0,
     }, "Plano Anual ativado. Cofres ilimitados liberados.");
+  });
+
+  activateFixedPlanBtn.addEventListener("click", async () => {
+    await applyPlanChange({
+      planTier: PLAN_TIERS.FIXED,
+      extraVaults: 0,
+    }, "Plano Fixo ativado. Cofres ilimitados liberados.");
   });
 
   buyExtraVaultBtn.addEventListener("click", async () => {
@@ -444,22 +459,22 @@ function renderVaults() {
         <p class="vault-meta">Meta definida: ${formatBRL(vault.goal)} • Registros: ${vault.totalDeposits} • Atualizado em ${new Date(vault.updatedAt).toLocaleDateString("pt-BR")}</p>
 
         <div class="progress-strip">
-          <strong>🔒 Cofre ${progress}% concluído</strong>
+          <strong>?? Cofre ${progress}% concluído</strong>
           <div class="progress-line"><span style="width:${progress}%"></span></div>
         </div>
 
         <div class="motivation-grid">
           <div class="motiv-box">
             <span class="motiv-label">Blocos</span>
-            <span class="motiv-value">🧱 ${blocksDone} de 10 concluídos</span>
+            <span class="motiv-value">?? ${blocksDone} de 10 concluídos</span>
           </div>
           <div class="motiv-box">
             <span class="motiv-label">Status</span>
-            <span class="motiv-value">🔥 ${status}</span>
+            <span class="motiv-value">?? ${status}</span>
           </div>
           <div class="motiv-box">
             <span class="motiv-label">Foco</span>
-            <span class="motiv-value">🪙 ${depositsLeft}</span>
+            <span class="motiv-value">?? ${depositsLeft}</span>
           </div>
           <div class="motiv-box">
             <span class="motiv-label">Reflexão</span>
@@ -470,7 +485,7 @@ function renderVaults() {
         <div class="secret">
           <p>
             Valor guardado neste cofre:
-            <strong>${isGoalReached ? formatBRL(vault.hiddenBalance) : "R$••••••"}</strong>
+            <strong>${isGoalReached ? formatBRL(vault.hiddenBalance) : "$••••••"}</strong>
           </p>
           ${isGoalReached ? "<p class=\"goal-unlock\">Meta concluída: valor liberado automaticamente.</p>" : ""}
         </div>
@@ -479,7 +494,7 @@ function renderVaults() {
         ${lockedMarkup}
 
         <form class="deposit-form" data-id="${vault.id}">
-          <input type="number" min="0.01" step="0.01" placeholder="Registrar novo aporte (R$)" required />
+          <input class="money-input" type="text" inputmode="numeric" autocomplete="off" placeholder="Registrar novo aporte ($)" required />
           <button class="btn btn-ghost" type="submit">Registrar aporte</button>
         </form>
 
@@ -492,6 +507,7 @@ function renderVaults() {
     .join("");
 
   attachVaultEvents();
+  setupMoneyInputs(vaultList);
   animateVaultCards();
 }
 
@@ -534,7 +550,7 @@ function attachVaultEvents() {
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const id = form.dataset.id;
-      const value = Number(form.querySelector("input").value);
+      const value = parseCurrencyInput(form.querySelector("input").value);
 
       if (!value || value <= 0) {
         return;
@@ -775,7 +791,7 @@ function sanitizeUserPlan(input) {
 }
 
 function isUnlimitedPlan(planTier) {
-  return planTier === PLAN_TIERS.BASIC || planTier === PLAN_TIERS.ANNUAL;
+  return planTier === PLAN_TIERS.BASIC || planTier === PLAN_TIERS.ANNUAL || planTier === PLAN_TIERS.FIXED;
 }
 
 function getCurrentLimitInfo() {
@@ -839,11 +855,71 @@ function updatePlanUI() {
 }
 
 function togglePlanButtons(disabled) {
-  [activateBasicPlanBtn, activateAnnualPlanBtn, buyExtraVaultBtn, resetPlanBtn].forEach((button) => {
+  [activateBasicPlanBtn, activateAnnualPlanBtn, activateFixedPlanBtn, buyExtraVaultBtn, resetPlanBtn].forEach((button) => {
     if (button) {
       button.disabled = disabled;
     }
   });
+}
+
+function setupMoneyInputs(scope = document) {
+  const moneyInputs = scope.querySelectorAll(".money-input");
+  moneyInputs.forEach((input) => {
+    if (input.dataset.moneyBound === "1") {
+      adjustMoneyInputWidth(input);
+      return;
+    }
+
+    input.dataset.moneyBound = "1";
+    adjustMoneyInputWidth(input);
+
+    input.addEventListener("input", () => {
+      const digits = String(input.value || "").replace(/\D/g, "").slice(0, 12);
+      if (!digits) {
+        input.value = "";
+        adjustMoneyInputWidth(input);
+        return;
+      }
+
+      input.value = formatCurrencyFromDigits(digits);
+      adjustMoneyInputWidth(input);
+    });
+
+    input.addEventListener("focus", () => {
+      adjustMoneyInputWidth(input);
+    });
+
+    input.addEventListener("blur", () => {
+      adjustMoneyInputWidth(input);
+    });
+  });
+}
+
+function formatCurrencyFromDigits(digits) {
+  const normalized = String(digits || "").replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+  if (!normalized) {
+    return "";
+  }
+
+  const cents = normalized.padStart(3, "0");
+  const intPart = cents.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const decimalPart = cents.slice(-2);
+  return `$ ${intPart},${decimalPart}`;
+}
+
+function parseCurrencyInput(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) {
+    return 0;
+  }
+  return Number(digits) / 100;
+}
+
+function adjustMoneyInputWidth(input) {
+  const min = 11;
+  const max = 24;
+  const current = Math.max(min, Math.min(max, String(input.value || input.placeholder || "").length + 1));
+  input.style.width = `${current}ch`;
 }
 
 function sanitizeVault(input, fallbackId = "") {
@@ -1258,3 +1334,4 @@ function escapeHTML(text) {
   div.textContent = text;
   return div.innerHTML;
 }
+
