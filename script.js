@@ -459,7 +459,7 @@ function renderVaults() {
         <p class="vault-meta">Meta definida: ${formatBRL(vault.goal)} • Registros: ${vault.totalDeposits} • Atualizado em ${new Date(vault.updatedAt).toLocaleDateString("pt-BR")}</p>
 
         <div class="progress-strip">
-          <strong>?? Cofre ${progress}% concluído</strong>
+          <strong>🎯 Cofre ${progress}% concluído</strong>
           <div class="progress-line"><span style="width:${progress}%"></span></div>
         </div>
 
