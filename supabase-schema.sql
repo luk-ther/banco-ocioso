@@ -17,6 +17,13 @@ create table if not exists public.user_plans (
   updated_at timestamptz not null default now()
 );
 
+alter table public.user_plans
+drop constraint if exists user_plans_plan_tier_check;
+
+alter table public.user_plans
+add constraint user_plans_plan_tier_check
+check (plan_tier in ('free', 'basic_monthly', 'annual', 'fixed'));
+
 alter table public.vaults enable row level security;
 alter table public.user_plans enable row level security;
 
