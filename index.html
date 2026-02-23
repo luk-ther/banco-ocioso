@@ -197,13 +197,27 @@
       </form>
 
       <div class="vault-groups">
-        <section class="vault-group">
-          <h3 class="vault-group-title">Metas em andamento</h3>
-          <div id="activeVaultList" class="vault-list" aria-live="polite"></div>
+        <section id="vaultGroupActive" class="vault-group">
+          <div class="vault-group-head">
+            <h3 class="vault-group-title">Metas em andamento</h3>
+            <button id="toggleActiveVaults" class="vault-group-toggle" type="button" aria-expanded="true">
+              Minimizar
+            </button>
+          </div>
+          <div class="vault-group-content">
+            <div id="activeVaultList" class="vault-list" aria-live="polite"></div>
+          </div>
         </section>
-        <section class="vault-group">
-          <h3 class="vault-group-title">Conquistas (cofres concluídos)</h3>
-          <div id="achievementVaultList" class="vault-list" aria-live="polite"></div>
+        <section id="vaultGroupAchievements" class="vault-group">
+          <div class="vault-group-head">
+            <h3 class="vault-group-title">Conquistas (cofres concluídos)</h3>
+            <button id="toggleAchievementVaults" class="vault-group-toggle" type="button" aria-expanded="true">
+              Minimizar
+            </button>
+          </div>
+          <div class="vault-group-content">
+            <div id="achievementVaultList" class="vault-list" aria-live="polite"></div>
+          </div>
         </section>
       </div>
     </section>

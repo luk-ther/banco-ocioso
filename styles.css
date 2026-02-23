@@ -472,6 +472,45 @@ textarea:focus {
   color: #d9e3f7;
 }
 
+.vault-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.vault-group-toggle {
+  border: 1px solid #2f3440;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--muted);
+  border-radius: 10px;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.vault-group-toggle:hover {
+  border-color: var(--brand);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.vault-group-content {
+  overflow: hidden;
+  max-height: 5000px;
+  opacity: 1;
+  transition: max-height 0.3s ease, opacity 0.25s ease, margin-top 0.25s ease;
+}
+
+.vault-group.is-collapsed .vault-group-content {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  pointer-events: none;
+}
+
 .vault-card {
   border: 1px solid var(--line);
   border-radius: var(--radius);

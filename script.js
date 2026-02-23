@@ -15,6 +15,10 @@ const vaultForm = document.getElementById("vaultForm");
 const feedback = document.getElementById("formFeedback");
 const activeVaultList = document.getElementById("activeVaultList");
 const achievementVaultList = document.getElementById("achievementVaultList");
+const vaultGroupActive = document.getElementById("vaultGroupActive");
+const vaultGroupAchievements = document.getElementById("vaultGroupAchievements");
+const toggleActiveVaultsBtn = document.getElementById("toggleActiveVaults");
+const toggleAchievementVaultsBtn = document.getElementById("toggleAchievementVaults");
 
 const authGuest = document.getElementById("authGuest");
 const authUser = document.getElementById("authUser");
@@ -60,6 +64,7 @@ setupSupportWidget();
 setupAuthUI();
 setupVaultHandlers();
 setupMoneyInputs();
+setupVaultGroupToggles();
 init();
 
 async function init() {
@@ -1057,4 +1062,41 @@ function escapeHTML(text) {
   const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
+}
+
+function setupVaultGroupToggles() {
+  bindVaultGroupToggle("active", vaultGroupActive, toggleActiveVaultsBtn);
+  bindVaultGroupToggle("achievements", vaultGroupAchievements, toggleAchievementVaultsBtn);
+}
+
+function bindVaultGroupToggle(key, sectionNode, buttonNode) {
+  if (!sectionNode || !buttonNode) {
+    return;
+  }
+
+  const storageKey = `vault_group_collapsed_${key}`;
+  let collapsed = false;
+  try {
+    collapsed = localStorage.getItem(storageKey) === "1";
+  } catch (_error) {
+    collapsed = false;
+  }
+
+  applyVaultGroupState(sectionNode, buttonNode, collapsed);
+
+  buttonNode.addEventListener("click", () => {
+    const isCollapsed = sectionNode.classList.toggle("is-collapsed");
+    applyVaultGroupState(sectionNode, buttonNode, isCollapsed);
+    try {
+      localStorage.setItem(storageKey, isCollapsed ? "1" : "0");
+    } catch (_error) {
+      // Sem bloqueio se localStorage não estiver disponível.
+    }
+  });
+}
+
+function applyVaultGroupState(sectionNode, buttonNode, collapsed) {
+  sectionNode.classList.toggle("is-collapsed", collapsed);
+  buttonNode.setAttribute("aria-expanded", String(!collapsed));
+  buttonNode.textContent = collapsed ? "Expandir" : "Minimizar";
 }
