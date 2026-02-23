@@ -57,6 +57,7 @@ const PLAN_LABELS = {
   [PLAN_TIERS.ANNUAL]: "Anual ($ 89,90/ano)",
   [PLAN_TIERS.FIXED]: "Fixo ($ 209,90)",
 };
+const PLAN_FEATURE_ENABLED = false;
 let userPlan = createDefaultPlan();
 
 const observer = new IntersectionObserver(
@@ -102,14 +103,18 @@ async function init() {
   currentUser = data?.session?.user || null;
   if (currentUser) {
     await loadVaultsFromDb();
-    await loadUserPlanFromDb();
+    if (PLAN_FEATURE_ENABLED) {
+      await loadUserPlanFromDb();
+    }
   }
 
   supabaseClient.auth.onAuthStateChange(async (_event, session) => {
     currentUser = session?.user || null;
     if (currentUser) {
       await loadVaultsFromDb();
-      await loadUserPlanFromDb();
+      if (PLAN_FEATURE_ENABLED) {
+        await loadUserPlanFromDb();
+      }
     } else {
       vaults.splice(0, vaults.length);
       userPlan = createDefaultPlan();
@@ -279,10 +284,12 @@ function setupVaultHandlers() {
       return;
     }
 
-    const limitInfo = getCurrentLimitInfo();
-    if (!limitInfo.canCreate) {
-      showError(`Limite atingido: ${limitInfo.message}`);
-      return;
+    if (PLAN_FEATURE_ENABLED) {
+      const limitInfo = getCurrentLimitInfo();
+      if (!limitInfo.canCreate) {
+        showError(`Limite atingido: ${limitInfo.message}`);
+        return;
+      }
     }
 
     const name = document.getElementById("vaultName").value.trim();
@@ -344,6 +351,11 @@ function setupVaultHandlers() {
 
 function setupPlanHandlers() {
   if (!activateBasicPlanBtn || !activateAnnualPlanBtn || !activateFixedPlanBtn || !buyExtraVaultBtn || !resetPlanBtn) {
+    return;
+  }
+
+  if (!PLAN_FEATURE_ENABLED) {
+    togglePlanButtons(true);
     return;
   }
 
@@ -656,7 +668,9 @@ function attachVaultEvents() {
 }
 
 function updateVaultAccessState() {
-  const limitInfo = getCurrentLimitInfo();
+  const limitInfo = PLAN_FEATURE_ENABLED
+    ? getCurrentLimitInfo()
+    : { canCreate: true, message: "", used: vaults.length, max: Number.POSITIVE_INFINITY };
   createVaultBtn.disabled = !supabaseReady || !rulesCheckbox.checked || !currentUser || !limitInfo.canCreate;
   const fields = vaultForm.querySelectorAll("input, button");
   fields.forEach((field) => {
@@ -709,6 +723,12 @@ async function loadVaultsFromDb() {
 }
 
 async function loadUserPlanFromDb() {
+  if (!PLAN_FEATURE_ENABLED) {
+    userPlan = createDefaultPlan();
+    updatePlanUI();
+    return;
+  }
+
   userPlan = createDefaultPlan();
 
   if (!currentUser) {
@@ -751,6 +771,10 @@ async function loadUserPlanFromDb() {
 }
 
 async function upsertUserPlan(plan) {
+  if (!PLAN_FEATURE_ENABLED) {
+    return { error: null };
+  }
+
   const { error } = await supabaseClient
     .from("user_plans")
     .upsert(
@@ -795,6 +819,15 @@ function isUnlimitedPlan(planTier) {
 }
 
 function getCurrentLimitInfo() {
+  if (!PLAN_FEATURE_ENABLED) {
+    return {
+      canCreate: true,
+      message: "planos desativados temporariamente.",
+      used: vaults.length,
+      max: Number.POSITIVE_INFINITY,
+    };
+  }
+
   if (!currentUser) {
     return {
       canCreate: false,
@@ -826,6 +859,13 @@ function getCurrentLimitInfo() {
 
 function updatePlanUI() {
   if (!planStatus) {
+    return;
+  }
+
+  if (!PLAN_FEATURE_ENABLED) {
+    planStatus.classList.remove("error");
+    planStatus.textContent = "Planos e pagamentos em pausa. Estrutura mantida para ativacao futura.";
+    togglePlanButtons(true);
     return;
   }
 
