@@ -14,12 +14,6 @@ const createVaultBtn = document.getElementById("createVaultBtn");
 const vaultForm = document.getElementById("vaultForm");
 const feedback = document.getElementById("formFeedback");
 const vaultList = document.getElementById("vaultList");
-const planStatus = document.getElementById("planStatus");
-const activateBasicPlanBtn = document.getElementById("activateBasicPlan");
-const activateAnnualPlanBtn = document.getElementById("activateAnnualPlan");
-const activateFixedPlanBtn = document.getElementById("activateFixedPlan");
-const buyExtraVaultBtn = document.getElementById("buyExtraVaultBtn");
-const resetPlanBtn = document.getElementById("resetPlanBtn");
 
 const authGuest = document.getElementById("authGuest");
 const authUser = document.getElementById("authUser");
@@ -44,22 +38,6 @@ let currentUser = null;
 let supabaseClient = null;
 let supabaseReady = false;
 
-const FREE_VAULT_LIMIT = 3;
-const PLAN_TIERS = {
-  FREE: "free",
-  BASIC: "basic_monthly",
-  ANNUAL: "annual",
-  FIXED: "fixed",
-};
-const PLAN_LABELS = {
-  [PLAN_TIERS.FREE]: "Grátis",
-  [PLAN_TIERS.BASIC]: "Básico ($ 9,90/mês)",
-  [PLAN_TIERS.ANNUAL]: "Anual ($ 89,90/ano)",
-  [PLAN_TIERS.FIXED]: "Fixo ($ 209,90)",
-};
-const PLAN_FEATURE_ENABLED = false;
-let userPlan = createDefaultPlan();
-
 const observer = new IntersectionObserver(
   (entries) => {
     entries.forEach((entry) => {
@@ -80,7 +58,6 @@ setupMobileMenu();
 setupSupportWidget();
 setupAuthUI();
 setupVaultHandlers();
-setupPlanHandlers();
 setupMoneyInputs();
 init();
 
@@ -103,31 +80,22 @@ async function init() {
   currentUser = data?.session?.user || null;
   if (currentUser) {
     await loadVaultsFromDb();
-    if (PLAN_FEATURE_ENABLED) {
-      await loadUserPlanFromDb();
-    }
   }
 
   supabaseClient.auth.onAuthStateChange(async (_event, session) => {
     currentUser = session?.user || null;
     if (currentUser) {
       await loadVaultsFromDb();
-      if (PLAN_FEATURE_ENABLED) {
-        await loadUserPlanFromDb();
-      }
     } else {
       vaults.splice(0, vaults.length);
-      userPlan = createDefaultPlan();
     }
     updateAuthUI();
     updateVaultAccessState();
-    updatePlanUI();
     renderVaults();
   });
 
   updateAuthUI();
   updateVaultAccessState();
-  updatePlanUI();
   renderVaults();
 }
 
@@ -164,7 +132,7 @@ function setupAuthUI() {
     event.preventDefault();
 
     if (!supabaseReady) {
-      setAuthError("Supabase não configurado.");
+      setAuthError("Supabase nÃƒÂ£o configurado.");
       return;
     }
 
@@ -196,7 +164,7 @@ function setupAuthUI() {
     event.preventDefault();
 
     if (!supabaseReady) {
-      setAuthError("Supabase não configurado.");
+      setAuthError("Supabase nÃƒÂ£o configurado.");
       return;
     }
 
@@ -212,7 +180,7 @@ function setupAuthUI() {
     }
 
     if (password.length < 6) {
-      setAuthError("A senha precisa ter no mínimo 6 caracteres.");
+      setAuthError("A senha precisa ter no mÃƒÂ­nimo 6 caracteres.");
       return;
     }
 
@@ -234,7 +202,7 @@ function setupAuthUI() {
     if (data.session) {
       setAuthMessage("Conta criada e login efetuado.");
     } else {
-      setAuthMessage("Conta criada. Agora faça login com seu acesso.");
+      setAuthMessage("Conta criada. Agora faÃƒÂ§a login com seu acesso.");
     }
 
     registerForm.reset();
@@ -251,7 +219,7 @@ function setupAuthUI() {
       return;
     }
 
-    setAuthMessage("Sessão encerrada.");
+    setAuthMessage("SessÃƒÂ£o encerrada.");
     feedback.textContent = "";
     feedback.classList.remove("error");
   });
@@ -262,15 +230,15 @@ function setupVaultHandlers() {
     updateVaultAccessState();
     feedback.classList.remove("error");
     feedback.textContent = rulesCheckbox.checked
-      ? "Instruções confirmadas. Se estiver conectado, você já pode criar seu cofre."
-      : "Confirme as instruções para liberar a criação de cofre.";
+      ? "InstruÃƒÂ§ÃƒÂµes confirmadas. Se estiver conectado, vocÃƒÂª jÃƒÂ¡ pode criar seu cofre."
+      : "Confirme as instruÃƒÂ§ÃƒÂµes para liberar a criaÃƒÂ§ÃƒÂ£o de cofre.";
   });
 
   vaultForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     if (!supabaseReady) {
-      showError("Supabase não configurado.");
+      showError("Supabase nÃƒÂ£o configurado.");
       return;
     }
 
@@ -280,16 +248,8 @@ function setupVaultHandlers() {
     }
 
     if (!rulesCheckbox.checked) {
-      showError("Confirme as instruções antes de criar a simulação.");
+      showError("Confirme as instruÃƒÂ§ÃƒÂµes antes de criar a simulaÃƒÂ§ÃƒÂ£o.");
       return;
-    }
-
-    if (PLAN_FEATURE_ENABLED) {
-      const limitInfo = getCurrentLimitInfo();
-      if (!limitInfo.canCreate) {
-        showError(`Limite atingido: ${limitInfo.message}`);
-        return;
-      }
     }
 
     const name = document.getElementById("vaultName").value.trim();
@@ -342,93 +302,10 @@ function setupVaultHandlers() {
     document.getElementById("challengeMode").checked = true;
     document.getElementById("lockedMode").checked = true;
     updateVaultAccessState();
-    updatePlanUI();
     feedback.classList.remove("error");
     feedback.textContent = `Cofre "${vault.name}" criado com sucesso.`;
     renderVaults();
   });
-}
-
-function setupPlanHandlers() {
-  if (!activateBasicPlanBtn || !activateAnnualPlanBtn || !activateFixedPlanBtn || !buyExtraVaultBtn || !resetPlanBtn) {
-    return;
-  }
-
-  if (!PLAN_FEATURE_ENABLED) {
-    togglePlanButtons(true);
-    return;
-  }
-
-  activateBasicPlanBtn.addEventListener("click", async () => {
-    await applyPlanChange({
-      planTier: PLAN_TIERS.BASIC,
-      extraVaults: 0,
-    }, "Plano Básico ativado. Cofres ilimitados liberados.");
-  });
-
-  activateAnnualPlanBtn.addEventListener("click", async () => {
-    await applyPlanChange({
-      planTier: PLAN_TIERS.ANNUAL,
-      extraVaults: 0,
-    }, "Plano Anual ativado. Cofres ilimitados liberados.");
-  });
-
-  activateFixedPlanBtn.addEventListener("click", async () => {
-    await applyPlanChange({
-      planTier: PLAN_TIERS.FIXED,
-      extraVaults: 0,
-    }, "Plano Fixo ativado. Cofres ilimitados liberados.");
-  });
-
-  buyExtraVaultBtn.addEventListener("click", async () => {
-    if (isUnlimitedPlan(userPlan.planTier)) {
-      feedback.classList.remove("error");
-      feedback.textContent = "Seu plano atual já tem cofres ilimitados.";
-      return;
-    }
-
-    await applyPlanChange({
-      planTier: PLAN_TIERS.FREE,
-      extraVaults: Math.max(0, Number(userPlan.extraVaults) || 0) + 1,
-    }, "1 cofre extra adicionado com sucesso.");
-  });
-
-  resetPlanBtn.addEventListener("click", async () => {
-    await applyPlanChange({
-      planTier: PLAN_TIERS.FREE,
-      extraVaults: 0,
-    }, "Plano redefinido para Grátis (3 cofres).");
-  });
-}
-
-async function applyPlanChange(nextPlan, successMessage) {
-  if (!supabaseReady) {
-    showError("Supabase não configurado.");
-    return;
-  }
-
-  if (!currentUser) {
-    showError("Entre na sua conta para alterar o plano.");
-    return;
-  }
-
-  const next = sanitizeUserPlan({
-    plan_tier: nextPlan.planTier,
-    extra_vaults: nextPlan.extraVaults,
-    updated_at: new Date().toISOString(),
-  });
-
-  const { error } = await upsertUserPlan(next);
-  if (error) {
-    showError(error.message);
-    return;
-  }
-
-  userPlan = next;
-  updatePlanUI();
-  updateVaultAccessState();
-  feedback.classList.remove("error");
-  feedback.textContent = successMessage;
 }
 
 function renderVaults() {
@@ -465,20 +342,20 @@ function renderVaults() {
       <article class="vault-card ${isGoalReached ? "goal-reached" : ""} ${isCelebrating ? "goal-celebrating" : ""}">
         <div class="vault-head">
           <h3>${escapeHTML(vault.name)}</h3>
-          <span class="badge">${isGoalReached ? "Meta concluída" : "Saldo oculto"}</span>
+          <span class="badge">${isGoalReached ? "Meta concluÃƒÂ­da" : "Saldo oculto"}</span>
         </div>
 
-        <p class="vault-meta">Meta definida: ${formatBRL(vault.goal)} • Registros: ${vault.totalDeposits} • Atualizado em ${new Date(vault.updatedAt).toLocaleDateString("pt-BR")}</p>
+        <p class="vault-meta">Meta definida: ${formatBRL(vault.goal)} Ã¢â‚¬Â¢ Registros: ${vault.totalDeposits} Ã¢â‚¬Â¢ Atualizado em ${new Date(vault.updatedAt).toLocaleDateString("pt-BR")}</p>
 
         <div class="progress-strip">
-          <strong>🎯 Cofre ${progress}% concluído</strong>
+          <strong>Ã°Å¸Å½Â¯ Cofre ${progress}% concluÃƒÂ­do</strong>
           <div class="progress-line"><span style="width:${progress}%"></span></div>
         </div>
 
         <div class="motivation-grid">
           <div class="motiv-box">
             <span class="motiv-label">Blocos</span>
-            <span class="motiv-value">🧱 ${blocksDone} de 10 concluídos</span>
+            <span class="motiv-value">Ã°Å¸Â§Â± ${blocksDone} de 10 concluÃƒÂ­dos</span>
           </div>
           <div class="motiv-box">
             <span class="motiv-label">Status</span>
@@ -486,20 +363,20 @@ function renderVaults() {
           </div>
           <div class="motiv-box">
             <span class="motiv-label">Foco</span>
-            <span class="motiv-value">💵 ${depositsLeft}</span>
+            <span class="motiv-value">Ã°Å¸â€™Âµ ${depositsLeft}</span>
           </div>
           <div class="motiv-box">
-            <span class="motiv-label">Reflexão</span>
-            <span class="motiv-value">💭 ${phrase}</span>
+            <span class="motiv-label">ReflexÃƒÂ£o</span>
+            <span class="motiv-value">Ã°Å¸â€™Â­ ${phrase}</span>
           </div>
         </div>
 
         <div class="secret">
           <p>
             Valor guardado neste cofre:
-            <strong>${isGoalReached ? formatBRL(vault.hiddenBalance) : "$••••••"}</strong>
+            <strong>${isGoalReached ? formatBRL(vault.hiddenBalance) : "$Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢"}</strong>
           </p>
-          ${isGoalReached ? "<p class=\"goal-unlock\">Meta concluída: valor liberado automaticamente.</p>" : ""}
+          ${isGoalReached ? "<p class=\"goal-unlock\">Meta concluÃƒÂ­da: valor liberado automaticamente.</p>" : ""}
         </div>
 
         ${challengeMarkup}
@@ -533,7 +410,7 @@ function attachVaultEvents() {
         return;
       }
 
-      const confirmed = window.confirm(`Deseja excluir a meta "${vault.name}"? Essa ação não pode ser desfeita.`);
+      const confirmed = window.confirm(`Deseja excluir a meta "${vault.name}"? Essa aÃƒÂ§ÃƒÂ£o nÃƒÂ£o pode ser desfeita.`);
       if (!confirmed) {
         return;
       }
@@ -550,9 +427,8 @@ function attachVaultEvents() {
       }
 
       updateVaultAccessState();
-      updatePlanUI();
       feedback.classList.remove("error");
-      feedback.textContent = `Meta "${vault.name}" excluída com sucesso.`;
+      feedback.textContent = `Meta "${vault.name}" excluÃƒÂ­da com sucesso.`;
       renderVaults();
     });
   });
@@ -619,7 +495,7 @@ function attachVaultEvents() {
         }
 
         feedback.classList.remove("error");
-        feedback.textContent = `Pedido de visualização iniciado para "${vault.name}". Aguarde 24h.`;
+        feedback.textContent = `Pedido de visualizaÃƒÂ§ÃƒÂ£o iniciado para "${vault.name}". Aguarde 24h.`;
         renderVaults();
         return;
       }
@@ -627,13 +503,13 @@ function attachVaultEvents() {
       if (action === "unlock") {
         const reflection = (form.querySelector("textarea")?.value || "").trim();
         if (reflection.length < 20) {
-          showError("Escreva uma reflexão com pelo menos 20 caracteres para liberar visualização.");
+          showError("Escreva uma reflexÃƒÂ£o com pelo menos 20 caracteres para liberar visualizaÃƒÂ§ÃƒÂ£o.");
           return;
         }
 
         const readyAt = new Date(vault.revealRequestAt).getTime() + 24 * 60 * 60 * 1000;
         if (Date.now() < readyAt) {
-          showError("A visualização ainda não está liberada. Aguarde completar 24h.");
+          showError("A visualizaÃƒÂ§ÃƒÂ£o ainda nÃƒÂ£o estÃƒÂ¡ liberada. Aguarde completar 24h.");
           return;
         }
 
@@ -648,7 +524,7 @@ function attachVaultEvents() {
         }
 
         feedback.classList.remove("error");
-        feedback.textContent = `Visualização temporária liberada por 15 segundos para "${vault.name}".`;
+        feedback.textContent = `VisualizaÃƒÂ§ÃƒÂ£o temporÃƒÂ¡ria liberada por 15 segundos para "${vault.name}".`;
 
         setTimeout(async () => {
           const liveVault = vaults.find((item) => item.id === id);
@@ -668,10 +544,7 @@ function attachVaultEvents() {
 }
 
 function updateVaultAccessState() {
-  const limitInfo = PLAN_FEATURE_ENABLED
-    ? getCurrentLimitInfo()
-    : { canCreate: true, message: "", used: vaults.length, max: Number.POSITIVE_INFINITY };
-  createVaultBtn.disabled = !supabaseReady || !rulesCheckbox.checked || !currentUser || !limitInfo.canCreate;
+  createVaultBtn.disabled = !supabaseReady || !rulesCheckbox.checked || !currentUser;
   const fields = vaultForm.querySelectorAll("input, button");
   fields.forEach((field) => {
     if (field.id === "createVaultBtn") {
@@ -690,11 +563,6 @@ function updateVaultAccessState() {
     feedback.classList.remove("error");
     feedback.textContent = "Entre na sua conta para criar e salvar cofres.";
     return;
-  }
-
-  if (!limitInfo.canCreate) {
-    feedback.classList.add("error");
-    feedback.textContent = `Limite atingido: ${limitInfo.message}`;
   }
 }
 
@@ -719,187 +587,6 @@ async function loadVaultsFromDb() {
   });
 
   updateVaultAccessState();
-  updatePlanUI();
-}
-
-async function loadUserPlanFromDb() {
-  if (!PLAN_FEATURE_ENABLED) {
-    userPlan = createDefaultPlan();
-    updatePlanUI();
-    return;
-  }
-
-  userPlan = createDefaultPlan();
-
-  if (!currentUser) {
-    updatePlanUI();
-    return;
-  }
-
-  const { error: upsertError } = await supabaseClient
-    .from("user_plans")
-    .upsert(
-      {
-        user_id: currentUser.id,
-      },
-      {
-        onConflict: "user_id",
-      }
-    );
-
-  if (upsertError) {
-    showError(`Não foi possível carregar planos. Atualize o schema no Supabase. Detalhe: ${upsertError.message}`);
-    updatePlanUI();
-    return;
-  }
-
-  const { data, error } = await supabaseClient
-    .from("user_plans")
-    .select("plan_tier, extra_vaults, updated_at")
-    .eq("user_id", currentUser.id)
-    .maybeSingle();
-
-  if (error) {
-    showError(`Erro ao buscar plano do usuário: ${error.message}`);
-    updatePlanUI();
-    return;
-  }
-
-  userPlan = sanitizeUserPlan(data);
-  updatePlanUI();
-  updateVaultAccessState();
-}
-
-async function upsertUserPlan(plan) {
-  if (!PLAN_FEATURE_ENABLED) {
-    return { error: null };
-  }
-
-  const { error } = await supabaseClient
-    .from("user_plans")
-    .upsert(
-      {
-        user_id: currentUser.id,
-        plan_tier: plan.planTier,
-        extra_vaults: plan.extraVaults,
-        updated_at: new Date().toISOString(),
-      },
-      {
-        onConflict: "user_id",
-      }
-    );
-
-  return { error };
-}
-
-function createDefaultPlan() {
-  return {
-    planTier: PLAN_TIERS.FREE,
-    extraVaults: 0,
-    updatedAt: new Date().toISOString(),
-  };
-}
-
-function sanitizeUserPlan(input) {
-  const planTierRaw = String(input?.plan_tier || "").trim();
-  const planTier = Object.values(PLAN_TIERS).includes(planTierRaw) ? planTierRaw : PLAN_TIERS.FREE;
-  const extraVaultsRaw = Number(input?.extra_vaults);
-  const extraVaults = Number.isFinite(extraVaultsRaw) && extraVaultsRaw > 0 ? Math.floor(extraVaultsRaw) : 0;
-  const updatedAt = typeof input?.updated_at === "string" ? input.updated_at : new Date().toISOString();
-
-  return {
-    planTier,
-    extraVaults,
-    updatedAt,
-  };
-}
-
-function isUnlimitedPlan(planTier) {
-  return planTier === PLAN_TIERS.BASIC || planTier === PLAN_TIERS.ANNUAL || planTier === PLAN_TIERS.FIXED;
-}
-
-function getCurrentLimitInfo() {
-  if (!PLAN_FEATURE_ENABLED) {
-    return {
-      canCreate: true,
-      message: "planos desativados temporariamente.",
-      used: vaults.length,
-      max: Number.POSITIVE_INFINITY,
-    };
-  }
-
-  if (!currentUser) {
-    return {
-      canCreate: false,
-      message: "faça login para criar cofres.",
-      used: vaults.length,
-      max: FREE_VAULT_LIMIT,
-    };
-  }
-
-  if (isUnlimitedPlan(userPlan.planTier)) {
-    return {
-      canCreate: true,
-      message: "seu plano possui cofres ilimitados.",
-      used: vaults.length,
-      max: Number.POSITIVE_INFINITY,
-    };
-  }
-
-  const max = FREE_VAULT_LIMIT + Math.max(0, Number(userPlan.extraVaults) || 0);
-  const canCreate = vaults.length < max;
-
-  return {
-    canCreate,
-    message: `você já usa ${vaults.length}/${max} cofres no plano atual.`,
-    used: vaults.length,
-    max,
-  };
-}
-
-function updatePlanUI() {
-  if (!planStatus) {
-    return;
-  }
-
-  if (!PLAN_FEATURE_ENABLED) {
-    planStatus.classList.remove("error");
-    planStatus.textContent = "Planos e pagamentos em pausa. Estrutura mantida para ativacao futura.";
-    togglePlanButtons(true);
-    return;
-  }
-
-  if (!supabaseReady) {
-    planStatus.classList.add("error");
-    planStatus.textContent = "Configure o Supabase para ativar planos e limites.";
-    togglePlanButtons(true);
-    return;
-  }
-
-  if (!currentUser) {
-    planStatus.classList.remove("error");
-    planStatus.textContent = "Entre na sua conta para ver e alterar seu plano.";
-    togglePlanButtons(true);
-    return;
-  }
-
-  const limitInfo = getCurrentLimitInfo();
-  const planName = PLAN_LABELS[userPlan.planTier] || PLAN_LABELS[PLAN_TIERS.FREE];
-  const limitText = Number.isFinite(limitInfo.max) ? `${limitInfo.used}/${limitInfo.max}` : `${limitInfo.used}/ilimitado`;
-
-  planStatus.classList.toggle("error", !limitInfo.canCreate);
-  planStatus.textContent = `Plano atual: ${planName}. Cofres em uso: ${limitText}.`;
-
-  togglePlanButtons(false);
-  buyExtraVaultBtn.disabled = isUnlimitedPlan(userPlan.planTier);
-}
-
-function togglePlanButtons(disabled) {
-  [activateBasicPlanBtn, activateAnnualPlanBtn, activateFixedPlanBtn, buyExtraVaultBtn, resetPlanBtn].forEach((button) => {
-    if (button) {
-      button.disabled = disabled;
-    }
-  });
 }
 
 function setupMoneyInputs(scope = document) {
@@ -1024,11 +711,11 @@ async function deleteVault(vaultId) {
 function buildChallenge(vault) {
   const days = Math.min(30, vault.activeDays.length);
   const done = Math.round((days / 30) * 100);
-  const message = days >= 30 ? "Desafio concluído." : `Faltam ${30 - days} dias para fechar o desafio.`;
+  const message = days >= 30 ? "Desafio concluÃƒÂ­do." : `Faltam ${30 - days} dias para fechar o desafio.`;
 
   return `
     <div class="challenge">
-      <p><strong>Modo Desafio:</strong> ${days}/30 dias com consistência.</p>
+      <p><strong>Modo Desafio:</strong> ${days}/30 dias com consistÃƒÂªncia.</p>
       <div class="progress-line"><span style="width:${done}%"></span></div>
       <p>${message}</p>
     </div>
@@ -1043,7 +730,7 @@ function buildLockedMode(vault, now) {
       <div class="locked-mode">
         <p><strong>Modo Bloqueado:</strong> para ver o valor real, inicie um pedido e aguarde 24h.</p>
         <form class="locked-actions lock-form" data-id="${vault.id}" data-action="request">
-          <button type="submit" class="btn btn-ghost">Solicitar visualização do saldo</button>
+          <button type="submit" class="btn btn-ghost">Solicitar visualizaÃƒÂ§ÃƒÂ£o do saldo</button>
         </form>
       </div>
     `;
@@ -1060,7 +747,7 @@ function buildLockedMode(vault, now) {
   if (lockState.type === "unlocked") {
     return `
       <div class="locked-mode">
-        <p><strong>Modo Bloqueado:</strong> visualização temporária ativa.</p>
+        <p><strong>Modo Bloqueado:</strong> visualizaÃƒÂ§ÃƒÂ£o temporÃƒÂ¡ria ativa.</p>
         <p class="reveal-balance">Saldo visivel por alguns segundos: ${formatBRL(vault.hiddenBalance)}</p>
       </div>
     `;
@@ -1070,8 +757,8 @@ function buildLockedMode(vault, now) {
     <div class="locked-mode">
       <p><strong>Modo Bloqueado:</strong> liberado. Reflita antes de visualizar o valor.</p>
       <form class="locked-actions lock-form" data-id="${vault.id}" data-action="unlock">
-        <textarea placeholder="Por que você precisa ver este valor agora e como vai evitar gastar por impulso?" required></textarea>
-        <button type="submit" class="btn btn-ghost">Liberar visualização por 15s</button>
+        <textarea placeholder="Por que vocÃƒÂª precisa ver este valor agora e como vai evitar gastar por impulso?" required></textarea>
+        <button type="submit" class="btn btn-ghost">Liberar visualizaÃƒÂ§ÃƒÂ£o por 15s</button>
       </form>
     </div>
   `;
@@ -1103,26 +790,26 @@ function getProgress(balance, goal) {
 
 function getStatusByProgress(progress) {
   if (progress >= 100) {
-    return "🎉 Meta concluída";
+    return "Ã°Å¸Å½â€° Meta concluÃƒÂ­da";
   }
   if (progress >= 75) {
-    return "🏁 Meta em reta final";
+    return "Ã°Å¸ÂÂ Meta em reta final";
   }
   if (progress >= 40) {
-    return "🛠 Meta em andamento";
+    return "Ã°Å¸â€ºÂ  Meta em andamento";
   }
-  return "👷‍♂️ Base da reserva em construção";
+  return "Ã°Å¸â€˜Â·Ã¢â‚¬ÂÃ¢â„¢â€šÃ¯Â¸Â Base da reserva em construÃƒÂ§ÃƒÂ£o";
 }
 
 function getMysteryPhrase(progress) {
   if (progress >= 100) {
-    return "Você blindou esta meta.";
+    return "VocÃƒÂª blindou esta meta.";
   }
   if (progress >= 65) {
-    return "Você está mais perto do que imagina.";
+    return "VocÃƒÂª estÃƒÂ¡ mais perto do que imagina.";
   }
   if (progress >= 30) {
-    return "Constância hoje, tranquilidade amanhã.";
+    return "ConstÃƒÂ¢ncia hoje, tranquilidade amanhÃƒÂ£.";
   }
   return "Primeiros passos constroem liberdade.";
 }
@@ -1138,11 +825,11 @@ function estimateDepositsLeft(vault) {
     : vault.avgDepositExpected;
 
   if (!avg || avg <= 0) {
-    return "Defina um depósito médio";
+    return "Defina um depÃƒÂ³sito mÃƒÂ©dio";
   }
 
   const missing = Math.ceil(remaining / avg);
-  return `Faltam ${missing} depósitos`;
+  return `Faltam ${missing} depÃƒÂ³sitos`;
 }
 
 function addActiveDay(vault, dateKey) {
@@ -1175,7 +862,7 @@ function handleGoalTransition(vault, previousBalance) {
   vault.goalReachedAt = new Date(now).toISOString();
   vault.celebrateUntil = new Date(now + 6000).toISOString();
   feedback.classList.remove("error");
-  feedback.textContent = `Meta batida no cofre "${vault.name}". Valor liberado para visualização.`;
+  feedback.textContent = `Meta batida no cofre "${vault.name}". Valor liberado para visualizaÃƒÂ§ÃƒÂ£o.`;
   setTimeout(() => {
     renderVaults();
   }, 6100);
@@ -1319,7 +1006,7 @@ function updateAuthUI() {
   if (currentUser) {
     authGuest.classList.add("hidden");
     authUser.classList.remove("hidden");
-    authUserName.textContent = currentUser.user_metadata?.name || currentUser.email || "Usuário";
+    authUserName.textContent = currentUser.user_metadata?.name || currentUser.email || "UsuÃƒÂ¡rio";
   } else {
     authGuest.classList.remove("hidden");
     authUser.classList.add("hidden");
