@@ -470,7 +470,7 @@ function renderVaults() {
           </div>
           <div class="motiv-box">
             <span class="motiv-label">Status</span>
-            <span class="motiv-value">🟢 ${status}</span>
+            <span class="motiv-value">${status}</span>
           </div>
           <div class="motiv-box">
             <span class="motiv-label">Foco</span>
@@ -1063,15 +1063,15 @@ function getProgress(balance, goal) {
 
 function getStatusByProgress(progress) {
   if (progress >= 100) {
-    return "Meta concluída";
+    return "🎉 Meta concluída";
   }
   if (progress >= 75) {
-    return "Meta em reta final";
+    return "🏁 Meta em reta final";
   }
   if (progress >= 40) {
-    return "Meta em andamento";
+    return "🛠 Meta em andamento";
   }
-  return "Base da reserva em construção";
+  return "👷‍♂️ Base da reserva em construção";
 }
 
 function getMysteryPhrase(progress) {
