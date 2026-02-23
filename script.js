@@ -13,7 +13,8 @@ const rulesCheckbox = document.getElementById("confirmRules");
 const createVaultBtn = document.getElementById("createVaultBtn");
 const vaultForm = document.getElementById("vaultForm");
 const feedback = document.getElementById("formFeedback");
-const vaultList = document.getElementById("vaultList");
+const activeVaultList = document.getElementById("activeVaultList");
+const achievementVaultList = document.getElementById("achievementVaultList");
 
 const authGuest = document.getElementById("authGuest");
 const authUser = document.getElementById("authUser");
@@ -309,36 +310,57 @@ function setupVaultHandlers() {
 }
 
 function renderVaults() {
+  if (!activeVaultList || !achievementVaultList) {
+    return;
+  }
+
   if (!supabaseReady) {
-    vaultList.innerHTML = "<article class=\"vault-card\"><p class=\"vault-meta\">Configure o Supabase para ativar login e cofres.</p></article>";
+    activeVaultList.innerHTML = "<article class=\"vault-card\"><p class=\"vault-meta\">Configure o Supabase para ativar login e cofres.</p></article>";
+    achievementVaultList.innerHTML = "<article class=\"vault-card\"><p class=\"vault-meta\">Conquistas aparecerão aqui quando uma meta for concluída.</p></article>";
     return;
   }
 
   if (!currentUser) {
-    vaultList.innerHTML = "<article class=\"vault-card\"><p class=\"vault-meta\">Entre na sua conta para carregar seus cofres.</p></article>";
+    activeVaultList.innerHTML = "<article class=\"vault-card\"><p class=\"vault-meta\">Entre na sua conta para carregar seus cofres.</p></article>";
+    achievementVaultList.innerHTML = "<article class=\"vault-card\"><p class=\"vault-meta\">Conquistas aparecerão aqui quando uma meta for concluída.</p></article>";
     return;
   }
 
   if (vaults.length === 0) {
-    vaultList.innerHTML = "<article class=\"vault-card\"><p class=\"vault-meta\">Nenhum cofre criado ainda. Comece pela primeira meta.</p></article>";
+    activeVaultList.innerHTML = "<article class=\"vault-card\"><p class=\"vault-meta\">Nenhum cofre criado ainda. Comece pela primeira meta.</p></article>";
+    achievementVaultList.innerHTML = "<article class=\"vault-card\"><p class=\"vault-meta\">Nenhuma conquista ainda.</p></article>";
     return;
   }
 
   const now = Date.now();
+  const activeVaults = vaults.filter((vault) => vault.hiddenBalance < vault.goal);
+  const achievementVaults = vaults.filter((vault) => vault.hiddenBalance >= vault.goal);
 
-  vaultList.innerHTML = vaults
-    .map((vault) => {
-      const isGoalReached = vault.hiddenBalance >= vault.goal;
-      const isCelebrating = Boolean(vault.celebrateUntil) && new Date(vault.celebrateUntil).getTime() > now;
-      const progress = getProgress(vault.hiddenBalance, vault.goal);
-      const blocksDone = Math.max(0, Math.min(10, Math.round(progress / 10)));
-      const status = getStatusByProgress(progress);
-      const phrase = getMysteryPhrase(progress);
-      const depositsLeft = estimateDepositsLeft(vault);
-      const challengeMarkup = vault.challengeMode ? buildChallenge(vault) : "";
-      const lockedMarkup = vault.lockedMode && !isGoalReached ? buildLockedMode(vault, now) : "";
+  activeVaultList.innerHTML = activeVaults.length
+    ? activeVaults.map((vault) => buildVaultCard(vault, now)).join("")
+    : "<article class=\"vault-card\"><p class=\"vault-meta\">Nenhuma meta em andamento no momento.</p></article>";
 
-      return `
+  achievementVaultList.innerHTML = achievementVaults.length
+    ? achievementVaults.map((vault) => buildVaultCard(vault, now)).join("")
+    : "<article class=\"vault-card\"><p class=\"vault-meta\">Nenhuma conquista ainda. Continue registrando aportes.</p></article>";
+
+  attachVaultEvents();
+  setupMoneyInputs(document);
+  animateVaultCards();
+}
+
+function buildVaultCard(vault, now) {
+  const isGoalReached = vault.hiddenBalance >= vault.goal;
+  const isCelebrating = Boolean(vault.celebrateUntil) && new Date(vault.celebrateUntil).getTime() > now;
+  const progress = getProgress(vault.hiddenBalance, vault.goal);
+  const blocksDone = Math.max(0, Math.min(10, Math.round(progress / 10)));
+  const status = getStatusByProgress(progress);
+  const phrase = getMysteryPhrase(progress);
+  const depositsLeft = estimateDepositsLeft(vault);
+  const challengeMarkup = vault.challengeMode ? buildChallenge(vault) : "";
+  const lockedMarkup = vault.lockedMode && !isGoalReached ? buildLockedMode(vault, now) : "";
+
+  return `
       <article class="vault-card ${isGoalReached ? "goal-reached" : ""} ${isCelebrating ? "goal-celebrating" : ""}">
         <div class="vault-head">
           <h3>${escapeHTML(vault.name)}</h3>
@@ -392,16 +414,10 @@ function renderVaults() {
         </button>
       </article>
       `;
-    })
-    .join("");
-
-  attachVaultEvents();
-  setupMoneyInputs(vaultList);
-  animateVaultCards();
 }
 
 function attachVaultEvents() {
-  const deleteButtons = vaultList.querySelectorAll(".delete-vault-btn");
+  const deleteButtons = document.querySelectorAll("#activeVaultList .delete-vault-btn, #achievementVaultList .delete-vault-btn");
   deleteButtons.forEach((button) => {
     button.addEventListener("click", async () => {
       const id = button.dataset.id;
@@ -433,7 +449,7 @@ function attachVaultEvents() {
     });
   });
 
-  const depositForms = vaultList.querySelectorAll(".deposit-form");
+  const depositForms = document.querySelectorAll("#activeVaultList .deposit-form, #achievementVaultList .deposit-form");
   depositForms.forEach((form) => {
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -472,7 +488,7 @@ function attachVaultEvents() {
     });
   });
 
-  const lockForms = vaultList.querySelectorAll(".lock-form");
+  const lockForms = document.querySelectorAll("#activeVaultList .lock-form, #achievementVaultList .lock-form");
   lockForms.forEach((form) => {
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -919,7 +935,7 @@ function closeMobileMenu() {
 }
 
 function animateVaultCards() {
-  const cards = vaultList.querySelectorAll(".vault-card");
+  const cards = document.querySelectorAll("#activeVaultList .vault-card, #achievementVaultList .vault-card");
   cards.forEach((card, index) => {
     card.classList.remove("card-enter");
     card.style.animationDelay = `${Math.min(index * 70, 280)}ms`;

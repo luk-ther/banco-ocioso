@@ -460,6 +460,18 @@ textarea:focus {
   gap: 0.9rem;
 }
 
+.vault-groups {
+  margin-top: 1rem;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.vault-group-title {
+  font-size: 1rem;
+  margin: 0;
+  color: #d9e3f7;
+}
+
 .vault-card {
   border: 1px solid var(--line);
   border-radius: var(--radius);
