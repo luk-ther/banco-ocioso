@@ -152,18 +152,22 @@ function setupAuthUI() {
       return;
     }
 
-    const { error } = await supabaseClient.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { error } = await supabaseClient.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
+      if (error) {
+        setAuthError(getFriendlyAuthError(error));
+        return;
+      }
+
+      setAuthMessage("Login realizado com sucesso.");
+      loginForm.reset();
+    } catch (error) {
       setAuthError(getFriendlyAuthError(error));
-      return;
     }
-
-    setAuthMessage("Login realizado com sucesso.");
-    loginForm.reset();
   });
 
   registerForm.addEventListener("submit", async (event) => {
@@ -190,28 +194,32 @@ function setupAuthUI() {
       return;
     }
 
-    const { data, error } = await supabaseClient.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name,
+    try {
+      const { data, error } = await supabaseClient.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name,
+          },
         },
-      },
-    });
+      });
 
-    if (error) {
+      if (error) {
+        setAuthError(getFriendlyAuthError(error));
+        return;
+      }
+
+      if (data.session) {
+        setAuthMessage("Conta criada e login efetuado.");
+      } else {
+        setAuthMessage("Conta criada. Verifique seu e-mail e confirme a conta antes de entrar.");
+      }
+
+      registerForm.reset();
+    } catch (error) {
       setAuthError(getFriendlyAuthError(error));
-      return;
     }
-
-    if (data.session) {
-      setAuthMessage("Conta criada e login efetuado.");
-    } else {
-      setAuthMessage("Conta criada. Agora faca login com seu acesso.");
-    }
-
-    registerForm.reset();
   });
 
   logoutBtn.addEventListener("click", async () => {
@@ -1054,10 +1062,13 @@ function setAuthError(message) {
 }
 
 function getFriendlyAuthError(error) {
-  const rawMessage = String(error?.message || "").trim();
+  const rawMessage = String(error?.message || error?.error_description || "").trim();
   const raw = rawMessage.toLowerCase();
   if (raw.includes("email rate limit") || raw.includes("rate limit")) {
     return "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.";
+  }
+  if (raw.includes("failed to fetch") || raw.includes("networkerror") || raw.includes("network request failed")) {
+    return "Falha de conexão com o Supabase. Verifique internet, URL do projeto e chave publica.";
   }
   if (!rawMessage || rawMessage === "{}" || rawMessage === "[object object]") {
     return "Nao foi possivel concluir a autenticacao agora. Aguarde alguns minutos e tente novamente.";
