@@ -80,7 +80,7 @@ async function init() {
 
   const { data, error } = await supabaseClient.auth.getSession();
   if (error) {
-    setAuthError(error.message);
+    setAuthError(getFriendlyAuthError(error));
   }
 
   currentUser = data?.session?.user || null;
@@ -158,7 +158,7 @@ function setupAuthUI() {
     });
 
     if (error) {
-      setAuthError(error.message);
+      setAuthError(getFriendlyAuthError(error));
       return;
     }
 
@@ -201,7 +201,7 @@ function setupAuthUI() {
     });
 
     if (error) {
-      setAuthError(error.message);
+      setAuthError(getFriendlyAuthError(error));
       return;
     }
 
@@ -221,7 +221,7 @@ function setupAuthUI() {
 
     const { error } = await supabaseClient.auth.signOut();
     if (error) {
-      setAuthError(error.message);
+      setAuthError(getFriendlyAuthError(error));
       return;
     }
 
@@ -1051,6 +1051,14 @@ function setAuthMessage(message) {
 function setAuthError(message) {
   authFeedback.classList.add("error");
   authFeedback.textContent = message;
+}
+
+function getFriendlyAuthError(error) {
+  const raw = String(error?.message || "").toLowerCase();
+  if (raw.includes("email rate limit") || raw.includes("rate limit")) {
+    return "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.";
+  }
+  return String(error?.message || "Nao foi possivel concluir a autenticacao.");
 }
 
 function showError(message) {
