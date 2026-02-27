@@ -62,6 +62,7 @@ const rankingProfileAvatar = document.getElementById("rankingProfileAvatar");
 const rankingProfileName = document.getElementById("rankingProfileName");
 const rankingProfileTheme = document.getElementById("rankingProfileTheme");
 const rankingProfileGoals = document.getElementById("rankingProfileGoals");
+const rankingProfileCreated = document.getElementById("rankingProfileCreated");
 const rankingProfileUpdated = document.getElementById("rankingProfileUpdated");
 
 const vaults = [];
@@ -470,6 +471,7 @@ function getDefaultProfile(user) {
     decoration: "glow",
     avatar_url: "",
     goals_completed: 0,
+    created_at: typeof user?.created_at === "string" ? user.created_at : new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
 }
@@ -502,6 +504,7 @@ function normalizeProfile(input, user = currentUser) {
     decoration,
     avatar_url: avatarUrl,
     goals_completed: goalsCompleted,
+    created_at: typeof safe.created_at === "string" ? safe.created_at : fallback.created_at,
     updated_at: typeof safe.updated_at === "string" ? safe.updated_at : new Date().toISOString(),
   };
 }
@@ -859,7 +862,7 @@ async function loadGlobalRanking() {
 
   const { data, error } = await supabaseClient
     .from("user_profiles")
-    .select("user_id, display_name, goals_completed, theme_key, name_font, accent_color, decoration, avatar_url, updated_at")
+    .select("user_id, display_name, goals_completed, theme_key, name_font, accent_color, decoration, avatar_url, created_at, updated_at")
     .order("goals_completed", { ascending: false })
     .order("updated_at", { ascending: true })
     .limit(50);
@@ -968,15 +971,23 @@ function openRankingProfile(profile) {
   }
   const safe = normalizeProfile(profile, null);
   const goals = Number.isFinite(Number(safe.goals_completed)) ? Math.max(0, Math.floor(Number(safe.goals_completed))) : 0;
+  const created = safe.created_at ? new Date(safe.created_at).toLocaleDateString("pt-BR") : "-";
   const updated = safe.updated_at ? new Date(safe.updated_at).toLocaleDateString("pt-BR") : "-";
   const fontFamily = getNameFontFamily(safe.name_font);
 
   rankingProfileAvatar.src = getAvatarSrc(safe);
+  rankingProfileAvatar.alt = `Foto de ${safe.display_name}`;
   rankingProfileName.textContent = safe.display_name;
+  rankingProfileName.style.color = safe.accent_color;
   rankingProfileName.style.fontFamily = fontFamily;
   rankingProfileTheme.textContent = `Tema: ${getThemeLabel(safe.theme_key)} • Decoração: ${safe.decoration}`;
   rankingProfileGoals.textContent = `Metas batidas: ${goals}`;
+  if (rankingProfileCreated) {
+    rankingProfileCreated.textContent = `Conta criada em: ${created}`;
+  }
   rankingProfileUpdated.textContent = `Atualizado em: ${updated}`;
+  rankingProfileSheet.style.setProperty("--ranking-accent", safe.accent_color);
+  rankingProfileSheet.dataset.decoration = safe.decoration;
   rankingProfileSheet.classList.remove("hidden");
 }
 
@@ -984,6 +995,8 @@ function closeRankingProfile() {
   if (!rankingProfileSheet) {
     return;
   }
+  rankingProfileSheet.style.removeProperty("--ranking-accent");
+  rankingProfileSheet.removeAttribute("data-decoration");
   rankingProfileSheet.classList.add("hidden");
 }
 
