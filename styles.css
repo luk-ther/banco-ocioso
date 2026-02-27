@@ -302,6 +302,18 @@ main {
 }
 
 .auth-panel .auth-user-link {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+}
+
+#authUser {
+  display: grid;
+  gap: 0.55rem;
+}
+
+#authUser .btn {
+  display: flex;
   width: 100%;
   justify-content: center;
 }
