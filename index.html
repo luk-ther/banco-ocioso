@@ -35,52 +35,7 @@
   <main id="inicio">
     <section id="auth" class="section reveal">
       <h2>Acesso seguro</h2>
-      <p class="section-copy">Crie sua conta para manter seus cofres salvos e privados por usuário.</p>
-
-      <div id="authGuest" class="auth-panel">
-        <div class="auth-tabs">
-          <button id="tabLogin" class="btn btn-ghost auth-tab active" type="button">Entrar</button>
-          <button id="tabRegister" class="btn btn-ghost auth-tab" type="button">Criar conta</button>
-        </div>
-
-        <form id="loginForm" class="auth-form" novalidate>
-          <div class="field-grid auth-grid">
-            <label>
-              E-mail
-              <input id="loginEmail" type="email" placeholder="voce@email.com" required />
-            </label>
-            <label>
-              Senha
-              <input id="loginPassword" type="password" placeholder="Sua senha" required />
-            </label>
-          </div>
-          <button class="btn btn-primary" type="submit">Entrar agora</button>
-        </form>
-
-        <form id="registerForm" class="auth-form hidden" novalidate>
-          <div class="field-grid auth-grid">
-            <label>
-              Nome
-              <input id="registerName" type="text" placeholder="Seu nome" required />
-            </label>
-            <label>
-              E-mail
-              <input id="registerEmail" type="email" placeholder="voce@email.com" required />
-            </label>
-            <label>
-              Senha
-              <input id="registerPassword" type="password" placeholder="Mínimo 6 caracteres" required />
-            </label>
-          </div>
-          <button class="btn btn-primary" type="submit">Criar conta</button>
-        </form>
-        <p id="authFeedback" class="feedback" aria-live="polite"></p>
-      </div>
-
-      <div id="authUser" class="auth-panel hidden">
-        <p class="auth-welcome">Conectado como <strong id="authUserName"></strong>.</p>
-        <button id="logoutBtn" class="btn btn-ghost" type="button">Sair</button>
-      </div>
+      <p class="section-copy">Use o botão flutuante de login para entrar ou criar sua conta com segurança.</p>
     </section>
 
     <section class="hero reveal">
@@ -233,6 +188,65 @@
     <h4><p><small><b>NÃO COMPARTILHE NENHUM DADO PESSOAL BANCÁRIO (Ex: SENHAS, CPF, RG, CNPJ, etc.)</b></small></p></h4>
     <p><small>versão <b>BETA</b></small></p>
   </footer>
+
+  <div class="auth-widget" aria-live="polite">
+    <button id="authToggle" class="auth-toggle" type="button" aria-label="Abrir login" aria-expanded="false" aria-controls="authPanel">
+      Login
+    </button>
+
+    <div id="authPanel" class="auth-float-panel" aria-hidden="true">
+      <div class="auth-head">
+        <strong>Acesso da conta</strong>
+        <button id="authClose" class="auth-close" type="button" aria-label="Fechar login">×</button>
+      </div>
+
+      <div id="authGuest" class="auth-panel">
+        <div class="auth-tabs">
+          <button id="tabLogin" class="btn btn-ghost auth-tab active" type="button">Entrar</button>
+          <button id="tabRegister" class="btn btn-ghost auth-tab" type="button">Criar conta</button>
+        </div>
+
+        <form id="loginForm" class="auth-form" novalidate>
+          <div class="field-grid auth-grid">
+            <label>
+              E-mail
+              <input id="loginEmail" type="email" placeholder="voce@email.com" required />
+            </label>
+            <label>
+              Senha
+              <input id="loginPassword" type="password" placeholder="Sua senha" required />
+            </label>
+          </div>
+          <button class="btn btn-primary" type="submit">Entrar agora</button>
+        </form>
+
+        <form id="registerForm" class="auth-form hidden" novalidate>
+          <div class="field-grid auth-grid">
+            <label>
+              Nome
+              <input id="registerName" type="text" placeholder="Seu nome" required />
+            </label>
+            <label>
+              E-mail
+              <input id="registerEmail" type="email" placeholder="voce@email.com" required />
+            </label>
+            <label>
+              Senha
+              <input id="registerPassword" type="password" placeholder="Minimo 6 caracteres" required />
+            </label>
+          </div>
+          <button class="btn btn-primary" type="submit">Criar conta</button>
+        </form>
+      </div>
+
+      <div id="authUser" class="auth-panel hidden">
+        <p class="auth-welcome">Conectado como <strong id="authUserName"></strong>.</p>
+        <button id="logoutBtn" class="btn btn-ghost" type="button">Sair</button>
+      </div>
+
+      <p id="authFeedback" class="feedback" aria-live="polite"></p>
+    </div>
+  </div>
 
   <div class="support-widget" aria-live="polite">
     <button id="supportToggle" class="support-toggle" type="button" aria-label="Abrir suporte" aria-expanded="false" aria-controls="supportPanel">

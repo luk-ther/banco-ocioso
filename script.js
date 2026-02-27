@@ -37,6 +37,9 @@ const supportClose = document.getElementById("supportClose");
 const supportForm = document.getElementById("supportForm");
 const supportFrame = document.getElementById("supportFrame");
 const supportToast = document.getElementById("supportToast");
+const authToggle = document.getElementById("authToggle");
+const authPanel = document.getElementById("authPanel");
+const authClose = document.getElementById("authClose");
 
 const vaults = [];
 let currentUser = null;
@@ -61,6 +64,7 @@ revealNodes.forEach((node, index) => {
 setupShortcutScroll();
 setupMobileMenu();
 setupSupportWidget();
+setupAuthWidget();
 setupAuthUI();
 setupVaultHandlers();
 setupMoneyInputs();
@@ -1031,6 +1035,52 @@ function closeSupportWidget() {
   supportToggle.classList.remove("is-active");
 }
 
+function setupAuthWidget() {
+  if (!authToggle || !authPanel || !authClose) {
+    return;
+  }
+
+  authToggle.addEventListener("click", () => {
+    const isOpen = authPanel.classList.toggle("is-open");
+    authPanel.setAttribute("aria-hidden", String(!isOpen));
+    authToggle.setAttribute("aria-expanded", String(isOpen));
+    authToggle.classList.toggle("is-active", isOpen);
+  });
+
+  authClose.addEventListener("click", () => {
+    closeAuthWidget();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeAuthWidget();
+    }
+  });
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Node)) {
+      return;
+    }
+    if (!authPanel.classList.contains("is-open")) {
+      return;
+    }
+    if (!authPanel.contains(target) && !authToggle.contains(target)) {
+      closeAuthWidget();
+    }
+  });
+}
+
+function closeAuthWidget() {
+  if (!authToggle || !authPanel) {
+    return;
+  }
+  authPanel.classList.remove("is-open");
+  authPanel.setAttribute("aria-hidden", "true");
+  authToggle.setAttribute("aria-expanded", "false");
+  authToggle.classList.remove("is-active");
+}
+
 function updateAuthUI() {
   if (currentUser) {
     authGuest.classList.add("hidden");
@@ -1068,10 +1118,10 @@ function getFriendlyAuthError(error) {
     return "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.";
   }
   if (raw.includes("failed to fetch") || raw.includes("networkerror") || raw.includes("network request failed")) {
-    return "Falha de conexão com o Supabase. Verifique internet, URL do projeto e chave publica.";
+    return "Falha de conexão com o Supabase. Verifique internet, URL do projeto e chave pública.";
   }
   if (!rawMessage || rawMessage === "{}" || rawMessage === "[object object]") {
-    return "Nao foi possivel concluir a autenticacao agora. Aguarde alguns minutos e tente novamente.";
+    return "Não foi possível concluir a autenticação agora. Aguarde alguns minutos e tente novamente.";
   }
   return rawMessage;
 }
