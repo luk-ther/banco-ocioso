@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Banco Ocioso | Personalização</title>
+  <meta name="description" content="Personalize seu perfil no Banco Ocioso: nome, tema, cor, fonte e foto." />
+  <link rel="icon" type="image/svg+xml" href="img/favicon.svg" />
+  <link rel="icon" type="image/png" href="img/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&family=Poppins:wght@400;600;700&family=Sora:wght@400;600;700;800&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-grid" aria-hidden="true"></div>
+
+  <header class="header">
+    <a class="brand" href="index.html#inicio">
+      <span class="brand-dot"></span>
+      Banco Ocioso
+    </a>
+    <button id="menuToggle" class="menu-toggle" type="button" aria-expanded="false" aria-controls="mainNav">
+      Menu
+    </button>
+    <nav id="mainNav" class="nav">
+      <a href="index.html#como-funciona">Como funciona</a>
+      <a href="index.html#simulador">Cofres</a>
+      <a href="personalizacao.html">Personalização</a>
+      <a href="ranking.html">Ranking</a>
+    </nav>
+
+    <div class="auth-widget" aria-live="polite">
+      <button id="authToggle" class="auth-toggle" type="button" aria-label="Abrir login" aria-expanded="false" aria-controls="authPanel">
+        Login
+      </button>
+
+      <div id="authPanel" class="auth-float-panel" aria-hidden="true">
+        <div class="auth-head">
+          <strong>Acesso da conta</strong>
+          <button id="authClose" class="auth-close" type="button" aria-label="Fechar login">×</button>
+        </div>
+
+        <div id="authGuest" class="auth-panel">
+          <div class="auth-tabs">
+            <button id="tabLogin" class="btn btn-ghost auth-tab active" type="button">Entrar</button>
+            <button id="tabRegister" class="btn btn-ghost auth-tab" type="button">Criar conta</button>
+          </div>
+
+          <form id="loginForm" class="auth-form" novalidate>
+            <div class="field-grid auth-grid">
+              <label>
+                E-mail
+                <input id="loginEmail" type="email" placeholder="voce@email.com" required />
+              </label>
+              <label>
+                Senha
+                <input id="loginPassword" type="password" placeholder="Sua senha" required />
+              </label>
+            </div>
+            <button class="btn btn-primary" type="submit">Entrar agora</button>
+          </form>
+
+          <form id="registerForm" class="auth-form hidden" novalidate>
+            <div class="field-grid auth-grid">
+              <label>
+                E-mail
+                <input id="registerEmail" type="email" placeholder="voce@email.com" required />
+              </label>
+              <label>
+                Nome
+                <input id="registerName" type="text" placeholder="Seu nome" required />
+              </label>
+              <label>
+                Senha
+                <input id="registerPassword" type="password" placeholder="Minimo 6 caracteres" required />
+              </label>
+            </div>
+            <button class="btn btn-primary" type="submit">Criar conta</button>
+          </form>
+        </div>
+
+        <div id="authUser" class="auth-panel hidden">
+          <p class="auth-welcome">Conectado como <strong id="authUserName"></strong>.</p>
+          <a class="btn btn-ghost auth-user-link" href="ranking.html">Ver ranking global</a>
+          <button id="logoutBtn" class="btn btn-ghost" type="button">Sair</button>
+        </div>
+
+        <p id="authFeedback" class="feedback" aria-live="polite"></p>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="personalizacao" class="section reveal visible">
+      <div class="section-head">
+        <h2>Personalização do perfil</h2>
+        <p>Edite tema, cor, fonte, foto e identidade pública da sua conta.</p>
+      </div>
+
+      <div class="profile-grid">
+        <article id="profilePreviewCard" class="profile-preview" data-decoration="glow">
+          <p class="profile-preview-label">Pré-visualização</p>
+          <div class="profile-preview-avatar-wrap">
+            <img id="profilePreviewAvatar" class="profile-preview-avatar" src="" alt="Foto de perfil" />
+          </div>
+          <h3 id="profilePreviewName" class="profile-preview-name">Seu nome</h3>
+          <p id="profilePreviewTagline" class="profile-preview-tagline">Blindagem financeira ativa</p>
+          <p id="profilePreviewMeta" class="profile-preview-meta">Metas batidas: 0</p>
+        </article>
+
+        <form id="profileForm" class="panel profile-form" novalidate>
+          <div class="field-grid field-grid-4">
+            <label>
+              Nome público
+              <input id="profileDisplayName" type="text" maxlength="32" placeholder="Como seu nome aparece no ranking" required />
+            </label>
+            <label>
+              Tema
+              <select id="profileTheme" required>
+                <option value="neon">Neon</option>
+                <option value="ocean">Ocean</option>
+                <option value="sunset">Sunset</option>
+                <option value="graphite">Graphite</option>
+              </select>
+            </label>
+            <label>
+              Cor de destaque
+              <input id="profileAccentColor" type="color" value="#0ce0ff" />
+            </label>
+            <label>
+              Fonte do nome
+              <select id="profileNameFont" required>
+                <option value="sora">Sora</option>
+                <option value="manrope">Manrope</option>
+                <option value="space">Space Grotesk</option>
+                <option value="poppins">Poppins</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="field-grid">
+            <label>
+              Decoração
+              <select id="profileDecoration" required>
+                <option value="glow">Glow</option>
+                <option value="ring">Ring</option>
+                <option value="spark">Spark</option>
+              </select>
+            </label>
+            <label>
+              Foto de perfil
+              <input id="profileAvatarFile" type="file" accept="image/png,image/jpeg,image/webp" />
+            </label>
+          </div>
+
+          <button id="profileRemoveAvatarBtn" class="btn btn-ghost" type="button">Remover foto</button>
+          <button id="profileSaveBtn" class="btn btn-primary" type="submit">Salvar perfil</button>
+          <p id="profileFeedback" class="feedback" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Linithy Team — Todos os direitos reservados</p>
+    <p>
+      <a href="termos.html">Termos de Uso</a>
+      •
+      <a href="privacidade.html">Política de Privacidade</a>
+    </p>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

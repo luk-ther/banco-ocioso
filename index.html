@@ -28,8 +28,8 @@
       <a href="#psicologia">Psicologia</a>
       <a href="#instrucoes">Instruções</a>
       <a href="#simulador">Cofres</a>
-      <a href="#perfil">Perfil</a>
-      <a href="#ranking">Ranking</a>
+      <a href="personalizacao.html">Personalização</a>
+      <a href="ranking.html">Ranking</a>
     </nav>
     
     <div class="auth-widget" aria-live="polite">
@@ -84,6 +84,17 @@
 
         <div id="authUser" class="auth-panel hidden">
           <p class="auth-welcome">Conectado como <strong id="authUserName"></strong>.</p>
+          <article id="profilePreviewCard" class="profile-preview auth-profile-preview" data-decoration="glow">
+            <p class="profile-preview-label">Pré-visualização</p>
+            <div class="profile-preview-avatar-wrap">
+              <img id="profilePreviewAvatar" class="profile-preview-avatar" src="" alt="Foto de perfil" />
+            </div>
+            <h3 id="profilePreviewName" class="profile-preview-name">Seu nome</h3>
+            <p id="profilePreviewTagline" class="profile-preview-tagline">Blindagem financeira ativa</p>
+            <p id="profilePreviewMeta" class="profile-preview-meta">Metas batidas: 0</p>
+          </article>
+          <a class="btn btn-primary auth-user-link" href="personalizacao.html">Abrir personalização</a>
+          <a class="btn btn-ghost auth-user-link" href="ranking.html">Ver ranking global</a>
           <button id="logoutBtn" class="btn btn-ghost" type="button">Sair</button>
         </div>
 
@@ -232,101 +243,6 @@
       </div>
     </section>
 
-    <section id="perfil" class="section reveal">
-      <div class="section-head">
-        <h2>Perfil do usuário</h2>
-        <p>Personalize seu nome, tema, cor e estilo visual.</p>
-      </div>
-
-      <div class="profile-grid">
-        <article id="profilePreviewCard" class="profile-preview" data-decoration="glow">
-          <p class="profile-preview-label">Pré-visualização</p>
-          <div class="profile-preview-avatar-wrap">
-            <img id="profilePreviewAvatar" class="profile-preview-avatar" src="" alt="Foto de perfil" />
-          </div>
-          <h3 id="profilePreviewName" class="profile-preview-name">Seu nome</h3>
-          <p id="profilePreviewTagline" class="profile-preview-tagline">Blindagem financeira ativa</p>
-          <p id="profilePreviewMeta" class="profile-preview-meta">Metas batidas: 0</p>
-        </article>
-
-        <form id="profileForm" class="panel profile-form" novalidate>
-          <div class="field-grid field-grid-4">
-            <label>
-              Nome público
-              <input id="profileDisplayName" type="text" maxlength="32" placeholder="Como seu nome aparece no ranking" required />
-            </label>
-            <label>
-              Tema
-              <select id="profileTheme" required>
-                <option value="neon">Neon</option>
-                <option value="ocean">Ocean</option>
-                <option value="sunset">Sunset</option>
-                <option value="graphite">Graphite</option>
-              </select>
-            </label>
-            <label>
-              Cor de destaque
-              <input id="profileAccentColor" type="color" value="#0ce0ff" />
-            </label>
-            <label>
-              Fonte do nome
-              <select id="profileNameFont" required>
-                <option value="sora">Sora</option>
-                <option value="manrope">Manrope</option>
-                <option value="space">Space Grotesk</option>
-                <option value="poppins">Poppins</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="field-grid">
-            <label>
-              Decoração
-              <select id="profileDecoration" required>
-                <option value="glow">Glow</option>
-                <option value="ring">Ring</option>
-                <option value="spark">Spark</option>
-              </select>
-            </label>
-            <label>
-              Foto de perfil
-              <input id="profileAvatarFile" type="file" accept="image/png,image/jpeg,image/webp" />
-            </label>
-          </div>
-
-          <button id="profileRemoveAvatarBtn" class="btn btn-ghost" type="button">Remover foto</button>
-          <button id="profileSaveBtn" class="btn btn-primary" type="submit">Salvar perfil</button>
-          <p id="profileFeedback" class="feedback" aria-live="polite"></p>
-        </form>
-      </div>
-    </section>
-
-    <section id="ranking" class="section reveal">
-      <div class="section-head">
-        <h2>Ranking global</h2>
-        <p>Usuários com mais metas batidas.</p>
-      </div>
-
-      <div class="panel">
-        <div id="rankingList" class="ranking-list" aria-live="polite"></div>
-        <p id="rankingFeedback" class="feedback" aria-live="polite"></p>
-        <article id="rankingProfileSheet" class="ranking-profile-sheet hidden" aria-live="polite">
-          <div class="ranking-profile-head">
-            <strong>Perfil no ranking</strong>
-            <button id="rankingProfileClose" class="ranking-profile-close" type="button" aria-label="Fechar perfil do ranking">×</button>
-          </div>
-          <div class="ranking-profile-body">
-            <img id="rankingProfileAvatar" class="ranking-profile-avatar" src="" alt="Foto do usuário do ranking" />
-            <div class="ranking-profile-content">
-              <h3 id="rankingProfileName" class="ranking-profile-name">Usuário</h3>
-              <p id="rankingProfileTheme" class="ranking-profile-text">Tema</p>
-              <p id="rankingProfileGoals" class="ranking-profile-text">Metas batidas</p>
-              <p id="rankingProfileUpdated" class="ranking-profile-text">Atualizado</p>
-            </div>
-          </div>
-        </article>
-      </div>
-    </section>
   </main>
 
   <footer class="footer">

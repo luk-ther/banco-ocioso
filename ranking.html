@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Banco Ocioso | Ranking Global</title>
+  <meta name="description" content="Ranking global do Banco Ocioso com os usuários que mais bateram metas." />
+  <link rel="icon" type="image/svg+xml" href="img/favicon.svg" />
+  <link rel="icon" type="image/png" href="img/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&family=Poppins:wght@400;600;700&family=Sora:wght@400;600;700;800&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-grid" aria-hidden="true"></div>
+
+  <header class="header">
+    <a class="brand" href="index.html#inicio">
+      <span class="brand-dot"></span>
+      Banco Ocioso
+    </a>
+    <button id="menuToggle" class="menu-toggle" type="button" aria-expanded="false" aria-controls="mainNav">
+      Menu
+    </button>
+    <nav id="mainNav" class="nav">
+      <a href="index.html#como-funciona">Como funciona</a>
+      <a href="index.html#simulador">Cofres</a>
+      <a href="personalizacao.html">Personalização</a>
+      <a href="ranking.html">Ranking</a>
+    </nav>
+
+    <div class="auth-widget" aria-live="polite">
+      <button id="authToggle" class="auth-toggle" type="button" aria-label="Abrir login" aria-expanded="false" aria-controls="authPanel">
+        Login
+      </button>
+
+      <div id="authPanel" class="auth-float-panel" aria-hidden="true">
+        <div class="auth-head">
+          <strong>Acesso da conta</strong>
+          <button id="authClose" class="auth-close" type="button" aria-label="Fechar login">×</button>
+        </div>
+
+        <div id="authGuest" class="auth-panel">
+          <div class="auth-tabs">
+            <button id="tabLogin" class="btn btn-ghost auth-tab active" type="button">Entrar</button>
+            <button id="tabRegister" class="btn btn-ghost auth-tab" type="button">Criar conta</button>
+          </div>
+
+          <form id="loginForm" class="auth-form" novalidate>
+            <div class="field-grid auth-grid">
+              <label>
+                E-mail
+                <input id="loginEmail" type="email" placeholder="voce@email.com" required />
+              </label>
+              <label>
+                Senha
+                <input id="loginPassword" type="password" placeholder="Sua senha" required />
+              </label>
+            </div>
+            <button class="btn btn-primary" type="submit">Entrar agora</button>
+          </form>
+
+          <form id="registerForm" class="auth-form hidden" novalidate>
+            <div class="field-grid auth-grid">
+              <label>
+                E-mail
+                <input id="registerEmail" type="email" placeholder="voce@email.com" required />
+              </label>
+              <label>
+                Nome
+                <input id="registerName" type="text" placeholder="Seu nome" required />
+              </label>
+              <label>
+                Senha
+                <input id="registerPassword" type="password" placeholder="Minimo 6 caracteres" required />
+              </label>
+            </div>
+            <button class="btn btn-primary" type="submit">Criar conta</button>
+          </form>
+        </div>
+
+        <div id="authUser" class="auth-panel hidden">
+          <p class="auth-welcome">Conectado como <strong id="authUserName"></strong>.</p>
+          <a class="btn btn-ghost auth-user-link" href="personalizacao.html">Abrir personalização</a>
+          <button id="logoutBtn" class="btn btn-ghost" type="button">Sair</button>
+        </div>
+
+        <p id="authFeedback" class="feedback" aria-live="polite"></p>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="ranking" class="section reveal visible">
+      <div class="section-head">
+        <h2>Ranking global</h2>
+        <p>Toque em um usuário para abrir o perfil completo.</p>
+      </div>
+
+      <div class="panel">
+        <div id="rankingList" class="ranking-list" aria-live="polite"></div>
+        <p id="rankingFeedback" class="feedback" aria-live="polite"></p>
+        <article id="rankingProfileSheet" class="ranking-profile-sheet hidden" aria-live="polite">
+          <div class="ranking-profile-head">
+            <strong>Perfil no ranking</strong>
+            <button id="rankingProfileClose" class="ranking-profile-close" type="button" aria-label="Fechar perfil do ranking">×</button>
+          </div>
+          <div class="ranking-profile-body">
+            <img id="rankingProfileAvatar" class="ranking-profile-avatar" src="" alt="Foto do usuário do ranking" />
+            <div class="ranking-profile-content">
+              <h3 id="rankingProfileName" class="ranking-profile-name">Usuário</h3>
+              <p id="rankingProfileTheme" class="ranking-profile-text">Tema</p>
+              <p id="rankingProfileGoals" class="ranking-profile-text">Metas batidas</p>
+              <p id="rankingProfileUpdated" class="ranking-profile-text">Atualizado</p>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Linithy Team — Todos os direitos reservados</p>
+    <p>
+      <a href="termos.html">Termos de Uso</a>
+      •
+      <a href="privacidade.html">Política de Privacidade</a>
+    </p>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

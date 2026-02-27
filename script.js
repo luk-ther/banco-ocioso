@@ -165,6 +165,9 @@ function initSupabase() {
 }
 
 function disableAuthForms() {
+  if (!loginForm || !registerForm) {
+    return;
+  }
   loginForm.querySelectorAll("input, button").forEach((el) => {
     el.disabled = true;
   });
@@ -174,6 +177,10 @@ function disableAuthForms() {
 }
 
 function setupAuthUI() {
+  if (!tabLogin || !tabRegister || !loginForm || !registerForm || !logoutBtn) {
+    return;
+  }
+
   tabLogin.addEventListener("click", () => toggleAuthTab("login"));
   tabRegister.addEventListener("click", () => toggleAuthTab("register"));
 
@@ -981,6 +988,10 @@ function closeRankingProfile() {
 }
 
 function setupVaultHandlers() {
+  if (!rulesCheckbox || !vaultForm || !feedback) {
+    return;
+  }
+
   rulesCheckbox.addEventListener("change", () => {
     updateVaultAccessState();
     feedback.classList.remove("error");
@@ -1346,6 +1357,10 @@ function attachVaultEvents() {
 }
 
 function updateVaultAccessState() {
+  if (!createVaultBtn || !vaultForm || !rulesCheckbox) {
+    return;
+  }
+
   createVaultBtn.disabled = !supabaseReady || !rulesCheckbox.checked || !currentUser;
   const fields = vaultForm.querySelectorAll("input, button");
   fields.forEach((field) => {
@@ -1899,6 +1914,10 @@ function closeAuthWidget() {
 }
 
 function updateAuthUI() {
+  if (!authGuest || !authUser || !authUserName || !authToggle) {
+    return;
+  }
+
   lockAuthToggleWidth();
 
   if (currentUser) {
@@ -1942,6 +1961,10 @@ function lockAuthToggleWidth() {
 }
 
 function toggleAuthTab(tab) {
+  if (!tabLogin || !tabRegister || !loginForm || !registerForm) {
+    return;
+  }
+
   const isLogin = tab === "login";
   tabLogin.classList.toggle("active", isLogin);
   tabRegister.classList.toggle("active", !isLogin);
@@ -1950,11 +1973,17 @@ function toggleAuthTab(tab) {
 }
 
 function setAuthMessage(message) {
+  if (!authFeedback) {
+    return;
+  }
   authFeedback.classList.remove("error");
   authFeedback.textContent = message;
 }
 
 function setAuthError(message) {
+  if (!authFeedback) {
+    return;
+  }
   authFeedback.classList.add("error");
   authFeedback.textContent = message;
 }

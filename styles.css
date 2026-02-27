@@ -301,6 +301,32 @@ main {
   background: linear-gradient(170deg, #131722, #0f1117);
 }
 
+.auth-panel .auth-user-link {
+  width: 100%;
+  justify-content: center;
+}
+
+.auth-profile-preview {
+  margin: 0.75rem 0 0.45rem;
+  padding: 0.85rem;
+  box-shadow: none;
+  border-color: #2d3545;
+}
+
+.auth-profile-preview .profile-preview-avatar-wrap {
+  width: 58px;
+  height: 58px;
+}
+
+.auth-profile-preview .profile-preview-name {
+  font-size: 1.2rem;
+}
+
+.auth-profile-preview .profile-preview-tagline,
+.auth-profile-preview .profile-preview-meta {
+  font-size: 0.86rem;
+}
+
 .auth-tabs {
   display: flex;
   gap: 0.6rem;
