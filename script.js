@@ -46,13 +46,23 @@ const profileThemeSelect = document.getElementById("profileTheme");
 const profileAccentColorInput = document.getElementById("profileAccentColor");
 const profileNameFontSelect = document.getElementById("profileNameFont");
 const profileDecorationSelect = document.getElementById("profileDecoration");
+const profileAvatarFileInput = document.getElementById("profileAvatarFile");
+const profileRemoveAvatarBtn = document.getElementById("profileRemoveAvatarBtn");
 const profileFeedback = document.getElementById("profileFeedback");
 const profilePreviewCard = document.getElementById("profilePreviewCard");
+const profilePreviewAvatar = document.getElementById("profilePreviewAvatar");
 const profilePreviewName = document.getElementById("profilePreviewName");
 const profilePreviewTagline = document.getElementById("profilePreviewTagline");
 const profilePreviewMeta = document.getElementById("profilePreviewMeta");
 const rankingList = document.getElementById("rankingList");
 const rankingFeedback = document.getElementById("rankingFeedback");
+const rankingProfileSheet = document.getElementById("rankingProfileSheet");
+const rankingProfileClose = document.getElementById("rankingProfileClose");
+const rankingProfileAvatar = document.getElementById("rankingProfileAvatar");
+const rankingProfileName = document.getElementById("rankingProfileName");
+const rankingProfileTheme = document.getElementById("rankingProfileTheme");
+const rankingProfileGoals = document.getElementById("rankingProfileGoals");
+const rankingProfileUpdated = document.getElementById("rankingProfileUpdated");
 
 const vaults = [];
 let currentUser = null;
@@ -60,6 +70,8 @@ let supabaseClient = null;
 let supabaseReady = false;
 let authToggleFixedWidth = "";
 let currentProfile = null;
+let profileAvatarDraftUrl = "";
+let rankingCache = [];
 
 const observer = new IntersectionObserver(
   (entries) => {
@@ -82,6 +94,7 @@ setupSupportWidget();
 setupAuthWidget();
 setupAuthUI();
 setupProfileUI();
+setupRankingInteractions();
 setupVaultHandlers();
 setupMoneyInputs();
 setupVaultGroupToggles();
@@ -315,6 +328,47 @@ function setupProfileUI() {
     });
   });
 
+  if (profileAvatarFileInput) {
+    profileAvatarFileInput.addEventListener("change", async () => {
+      if (!currentUser) {
+        setProfileError("Entre na sua conta para anexar foto de perfil.");
+        profileAvatarFileInput.value = "";
+        return;
+      }
+
+      const file = profileAvatarFileInput.files?.[0];
+      if (!file) {
+        return;
+      }
+
+      try {
+        profileAvatarDraftUrl = await buildAvatarDataUrl(file);
+        const draft = collectProfileDraft(currentUser, currentProfile || getDefaultProfile(currentUser));
+        applyProfileAppearance(draft);
+        updateProfilePreview(draft);
+        setProfileMessage("Foto carregada. Clique em \"Salvar perfil\" para publicar.");
+      } catch (error) {
+        setProfileError(String(error?.message || "Não foi possível processar a foto."));
+      } finally {
+        profileAvatarFileInput.value = "";
+      }
+    });
+  }
+
+  if (profileRemoveAvatarBtn) {
+    profileRemoveAvatarBtn.addEventListener("click", () => {
+      if (!currentUser) {
+        setProfileError("Entre na sua conta para editar foto de perfil.");
+        return;
+      }
+      profileAvatarDraftUrl = "";
+      const draft = collectProfileDraft(currentUser, currentProfile || getDefaultProfile(currentUser));
+      applyProfileAppearance(draft);
+      updateProfilePreview(draft);
+      setProfileMessage("Foto removida do rascunho. Salve o perfil para confirmar.");
+    });
+  }
+
   profileForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
@@ -336,6 +390,7 @@ function setupProfileUI() {
       accent_color: draft.accent_color,
       name_font: draft.name_font,
       decoration: draft.decoration,
+      avatar_url: draft.avatar_url,
       goals_completed: countCompletedGoals(),
       updated_at: new Date().toISOString(),
     };
@@ -352,6 +407,7 @@ function setupProfileUI() {
     }
 
     currentProfile = normalizeProfile(data, currentUser);
+    profileAvatarDraftUrl = currentProfile.avatar_url;
     hydrateProfileForm(currentProfile);
     applyProfileAppearance(currentProfile);
     updateProfilePreview(currentProfile);
@@ -405,6 +461,7 @@ function getDefaultProfile(user) {
     accent_color: "#0ce0ff",
     name_font: "sora",
     decoration: "glow",
+    avatar_url: "",
     goals_completed: 0,
     updated_at: new Date().toISOString(),
   };
@@ -424,6 +481,7 @@ function normalizeProfile(input, user = currentUser) {
     : fallback.decoration;
   const accent = isValidHexColor(safe.accent_color) ? String(safe.accent_color).toLowerCase() : fallback.accent_color;
   const displayName = String(safe.display_name || fallback.display_name).trim().slice(0, 32) || fallback.display_name;
+  const avatarUrl = sanitizeAvatarUrl(safe.avatar_url || fallback.avatar_url || "");
   const goalsCompleted = Number.isFinite(Number(safe.goals_completed)) && Number(safe.goals_completed) >= 0
     ? Math.floor(Number(safe.goals_completed))
     : 0;
@@ -435,6 +493,7 @@ function normalizeProfile(input, user = currentUser) {
     accent_color: accent,
     name_font: nameFont,
     decoration,
+    avatar_url: avatarUrl,
     goals_completed: goalsCompleted,
     updated_at: typeof safe.updated_at === "string" ? safe.updated_at : new Date().toISOString(),
   };
@@ -444,6 +503,112 @@ function isValidHexColor(value) {
   return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value.trim());
 }
 
+function sanitizeAvatarUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "";
+  }
+  if (raw.startsWith("data:image/")) {
+    return raw.length <= 360000 ? raw : "";
+  }
+  if (/^https?:\/\//i.test(raw)) {
+    return raw.length <= 1000 ? raw : "";
+  }
+  return "";
+}
+
+function getAvatarInitials(name) {
+  const words = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) {
+    return "BO";
+  }
+  if (words.length === 1) {
+    return words[0].slice(0, 2).toUpperCase();
+  }
+  return `${words[0][0] || ""}${words[1][0] || ""}`.toUpperCase();
+}
+
+function buildAvatarPlaceholder(name, accentColor = "#0ce0ff") {
+  const safeAccent = isValidHexColor(accentColor) ? accentColor : "#0ce0ff";
+  const initials = getAvatarInitials(name);
+  const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="${safeAccent}" />
+      <stop offset="100%" stop-color="#111a2b" />
+    </linearGradient>
+  </defs>
+  <rect width="320" height="320" fill="url(#bg)" />
+  <circle cx="88" cy="72" r="82" fill="rgba(255,255,255,0.12)" />
+  <text x="50%" y="52%" dominant-baseline="middle" text-anchor="middle"
+    font-family="Sora, sans-serif" font-size="116" font-weight="800" fill="#ffffff">${initials}</text>
+</svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function getAvatarSrc(profile) {
+  const safe = normalizeProfile(profile, currentUser);
+  return safe.avatar_url || buildAvatarPlaceholder(safe.display_name, safe.accent_color);
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Falha ao ler o arquivo de imagem."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Formato de imagem inválido."));
+    img.src = dataUrl;
+  });
+}
+
+async function buildAvatarDataUrl(file) {
+  const maxFileBytes = 8 * 1024 * 1024;
+  if (!file || !String(file.type || "").startsWith("image/")) {
+    throw new Error("Selecione uma imagem válida (PNG, JPG ou WEBP).");
+  }
+  if (file.size > maxFileBytes) {
+    throw new Error("Imagem muito grande. O limite é 8 MB.");
+  }
+
+  const rawDataUrl = await readFileAsDataUrl(file);
+  const img = await loadImage(rawDataUrl);
+  const minSide = Math.min(img.naturalWidth || img.width, img.naturalHeight || img.height);
+  const sourceX = Math.max(0, Math.floor(((img.naturalWidth || img.width) - minSide) / 2));
+  const sourceY = Math.max(0, Math.floor(((img.naturalHeight || img.height) - minSide) / 2));
+
+  const canvas = document.createElement("canvas");
+  const targetSize = 320;
+  canvas.width = targetSize;
+  canvas.height = targetSize;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Não foi possível processar a imagem.");
+  }
+  ctx.drawImage(img, sourceX, sourceY, minSide, minSide, 0, 0, targetSize, targetSize);
+
+  let quality = 0.88;
+  let output = canvas.toDataURL("image/jpeg", quality);
+  while (output.length > 320000 && quality > 0.5) {
+    quality -= 0.08;
+    output = canvas.toDataURL("image/jpeg", quality);
+  }
+
+  if (output.length > 360000) {
+    throw new Error("A imagem ficou muito pesada. Use uma foto menor.");
+  }
+
+  return output;
+}
+
 function collectProfileDraft(user, fallbackProfile) {
   const fallback = normalizeProfile(fallbackProfile, user);
   const displayName = String(profileDisplayNameInput?.value || fallback.display_name).trim().slice(0, 32) || fallback.display_name;
@@ -451,6 +616,7 @@ function collectProfileDraft(user, fallbackProfile) {
   const accent = String(profileAccentColorInput?.value || fallback.accent_color).toLowerCase();
   const nameFont = String(profileNameFontSelect?.value || fallback.name_font).toLowerCase();
   const decoration = String(profileDecorationSelect?.value || fallback.decoration).toLowerCase();
+  const avatarUrl = sanitizeAvatarUrl(profileAvatarDraftUrl || fallback.avatar_url || "");
 
   return normalizeProfile(
     {
@@ -460,6 +626,7 @@ function collectProfileDraft(user, fallbackProfile) {
       accent_color: accent,
       name_font: nameFont,
       decoration,
+      avatar_url: avatarUrl,
     },
     user
   );
@@ -474,6 +641,10 @@ function hydrateProfileForm(profile) {
   profileAccentColorInput.value = profile.accent_color;
   profileNameFontSelect.value = profile.name_font;
   profileDecorationSelect.value = profile.decoration;
+  profileAvatarDraftUrl = profile.avatar_url || "";
+  if (profileAvatarFileInput) {
+    profileAvatarFileInput.value = "";
+  }
 }
 
 function updateProfilePreview(profile) {
@@ -485,6 +656,10 @@ function updateProfilePreview(profile) {
   profilePreviewTagline.textContent = "Blindagem financeira personalizada";
   profilePreviewMeta.textContent = `Metas batidas: ${safe.goals_completed}`;
   profilePreviewCard.dataset.decoration = safe.decoration;
+  if (profilePreviewAvatar) {
+    profilePreviewAvatar.src = getAvatarSrc(safe);
+    profilePreviewAvatar.alt = `Foto de ${safe.display_name}`;
+  }
 }
 
 function getNameFontFamily(fontKey) {
@@ -584,6 +759,7 @@ async function loadUserProfile() {
       accent_color: defaultProfile.accent_color,
       name_font: defaultProfile.name_font,
       decoration: defaultProfile.decoration,
+      avatar_url: defaultProfile.avatar_url,
       goals_completed: countCompletedGoals(),
       updated_at: new Date().toISOString(),
     };
@@ -638,6 +814,7 @@ async function syncGoalsCompletedToProfile(force = false) {
     accent_color: currentProfile.accent_color,
     name_font: currentProfile.name_font,
     decoration: currentProfile.decoration,
+    avatar_url: currentProfile.avatar_url,
     goals_completed: currentProfile.goals_completed,
     updated_at: currentProfile.updated_at,
   };
@@ -675,7 +852,7 @@ async function loadGlobalRanking() {
 
   const { data, error } = await supabaseClient
     .from("user_profiles")
-    .select("user_id, display_name, goals_completed, theme_key, name_font, updated_at")
+    .select("user_id, display_name, goals_completed, theme_key, name_font, accent_color, decoration, avatar_url, updated_at")
     .order("goals_completed", { ascending: false })
     .order("updated_at", { ascending: true })
     .limit(50);
@@ -695,20 +872,26 @@ function renderRanking(items) {
     return;
   }
 
+  rankingCache = Array.isArray(items)
+    ? items.map((item) => normalizeProfile(item, null))
+    : [];
+
   if (!Array.isArray(items) || items.length === 0) {
     rankingList.innerHTML = "<article class=\"ranking-item\"><span class=\"ranking-position\">-</span><div class=\"ranking-user\"><strong class=\"ranking-name\">Ainda sem dados no ranking</strong><span class=\"ranking-theme\">Complete metas para aparecer aqui.</span></div><span class=\"ranking-score\">0</span></article>";
+    closeRankingProfile();
     return;
   }
 
-  rankingList.innerHTML = items.map((item, index) => {
-    const safe = normalizeProfile(item, null);
+  rankingList.innerHTML = rankingCache.map((safe, index) => {
     const position = index + 1;
     const isTop = position <= 3;
     const fontFamily = getNameFontFamily(safe.name_font);
     const goals = Number.isFinite(Number(safe.goals_completed)) ? Math.max(0, Math.floor(Number(safe.goals_completed))) : 0;
+    const avatarSrc = escapeAttr(getAvatarSrc(safe));
     return `
-      <article class="ranking-item">
+      <article class="ranking-item" tabindex="0" role="button" aria-label="Ver perfil de ${escapeHTML(safe.display_name)}" data-user-id="${safe.user_id}">
         <span class="ranking-position ${isTop ? "top" : ""}">${position}</span>
+        <img class="ranking-avatar" src="${avatarSrc}" alt="Foto de ${escapeHTML(safe.display_name)}" loading="lazy" />
         <div class="ranking-user">
           <strong class="ranking-name" style="font-family:${fontFamily}">${escapeHTML(safe.display_name)}</strong>
           <span class="ranking-theme">Tema: ${getThemeLabel(safe.theme_key)}</span>
@@ -717,6 +900,84 @@ function renderRanking(items) {
       </article>
     `;
   }).join("");
+}
+
+function setupRankingInteractions() {
+  if (!rankingList) {
+    return;
+  }
+
+  rankingList.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+    const item = target.closest(".ranking-item[data-user-id]");
+    if (!item) {
+      return;
+    }
+    const userId = String(item.getAttribute("data-user-id") || "");
+    if (!userId) {
+      return;
+    }
+    const profile = rankingCache.find((entry) => entry.user_id === userId);
+    if (!profile) {
+      return;
+    }
+    openRankingProfile(profile);
+  });
+
+  rankingList.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+    const item = target.closest(".ranking-item[data-user-id]");
+    if (!item) {
+      return;
+    }
+    event.preventDefault();
+    const userId = String(item.getAttribute("data-user-id") || "");
+    const profile = rankingCache.find((entry) => entry.user_id === userId);
+    if (!profile) {
+      return;
+    }
+    openRankingProfile(profile);
+  });
+
+  if (rankingProfileClose) {
+    rankingProfileClose.addEventListener("click", () => {
+      closeRankingProfile();
+    });
+  }
+}
+
+function openRankingProfile(profile) {
+  if (!rankingProfileSheet || !rankingProfileAvatar || !rankingProfileName || !rankingProfileTheme || !rankingProfileGoals || !rankingProfileUpdated) {
+    return;
+  }
+  const safe = normalizeProfile(profile, null);
+  const goals = Number.isFinite(Number(safe.goals_completed)) ? Math.max(0, Math.floor(Number(safe.goals_completed))) : 0;
+  const updated = safe.updated_at ? new Date(safe.updated_at).toLocaleDateString("pt-BR") : "-";
+  const fontFamily = getNameFontFamily(safe.name_font);
+
+  rankingProfileAvatar.src = getAvatarSrc(safe);
+  rankingProfileName.textContent = safe.display_name;
+  rankingProfileName.style.fontFamily = fontFamily;
+  rankingProfileTheme.textContent = `Tema: ${getThemeLabel(safe.theme_key)} • Decoração: ${safe.decoration}`;
+  rankingProfileGoals.textContent = `Metas batidas: ${goals}`;
+  rankingProfileUpdated.textContent = `Atualizado em: ${updated}`;
+  rankingProfileSheet.classList.remove("hidden");
+}
+
+function closeRankingProfile() {
+  if (!rankingProfileSheet) {
+    return;
+  }
+  rankingProfileSheet.classList.add("hidden");
 }
 
 function setupVaultHandlers() {
@@ -1770,6 +2031,14 @@ function escapeHTML(text) {
   const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
+}
+
+function escapeAttr(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function setupVaultGroupToggles() {

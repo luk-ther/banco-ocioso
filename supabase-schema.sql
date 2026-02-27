@@ -16,10 +16,13 @@ create table if not exists public.user_profiles (
   accent_color text not null default '#0ce0ff' check (accent_color ~ '^#[0-9A-Fa-f]{6}$'),
   name_font text not null default 'sora' check (name_font in ('sora', 'manrope', 'space', 'poppins')),
   decoration text not null default 'glow' check (decoration in ('glow', 'ring', 'spark')),
+  avatar_url text not null default '',
   goals_completed integer not null default 0 check (goals_completed >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.user_profiles add column if not exists avatar_url text not null default '';
 
 alter table public.vaults enable row level security;
 alter table public.user_profiles enable row level security;

@@ -565,8 +565,27 @@ main {
   color: var(--muted);
 }
 
+.profile-preview-avatar-wrap {
+  margin-top: 0.75rem;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.profile-preview-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .profile-preview-name {
-  margin: 0.5rem 0 0;
+  margin: 0.75rem 0 0;
   font-size: clamp(1.4rem, 2.5vw, 2rem);
   line-height: 1.15;
   color: var(--user-accent);
@@ -591,6 +610,8 @@ main {
 
 .profile-form {
   margin-top: 0;
+  display: grid;
+  gap: 0.75rem;
 }
 
 .ranking-list {
@@ -604,9 +625,24 @@ main {
   padding: 0.68rem 0.8rem;
   background: rgba(255, 255, 255, 0.015);
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto auto 1fr auto;
   align-items: center;
   gap: 0.75rem;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.ranking-item:hover {
+  transform: translateY(-1px);
+  border-color: #3c475c;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.ranking-item:focus-visible {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(12, 224, 255, 0.22);
 }
 
 .ranking-position {
@@ -625,6 +661,15 @@ main {
 .ranking-position.top {
   background: linear-gradient(130deg, var(--brand), var(--brand-2));
   color: #001117;
+}
+
+.ranking-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .ranking-user {
@@ -649,6 +694,62 @@ main {
 .ranking-score {
   font-weight: 800;
   color: var(--brand-2);
+}
+
+.ranking-profile-sheet {
+  margin-top: 0.9rem;
+  border: 1px solid #2d3545;
+  border-radius: 14px;
+  padding: 0.85rem;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.ranking-profile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.ranking-profile-close {
+  border: 1px solid #2f3440;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--muted);
+  border-radius: 9px;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+}
+
+.ranking-profile-body {
+  margin-top: 0.75rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.ranking-profile-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.24);
+}
+
+.ranking-profile-content {
+  min-width: 0;
+}
+
+.ranking-profile-name {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.ranking-profile-text {
+  margin: 0.28rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
 }
 
 .field-grid {
@@ -1232,11 +1333,17 @@ select:focus {
   }
 
   .ranking-item {
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto auto 1fr;
   }
 
   .ranking-score {
-    grid-column: 2;
+    grid-column: 3;
+    justify-self: end;
+  }
+
+  .ranking-profile-body {
+    grid-template-columns: 1fr;
+    justify-items: start;
   }
 
   .header {

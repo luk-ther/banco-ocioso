@@ -241,6 +241,9 @@
       <div class="profile-grid">
         <article id="profilePreviewCard" class="profile-preview" data-decoration="glow">
           <p class="profile-preview-label">Pré-visualização</p>
+          <div class="profile-preview-avatar-wrap">
+            <img id="profilePreviewAvatar" class="profile-preview-avatar" src="" alt="Foto de perfil" />
+          </div>
           <h3 id="profilePreviewName" class="profile-preview-name">Seu nome</h3>
           <p id="profilePreviewTagline" class="profile-preview-tagline">Blindagem financeira ativa</p>
           <p id="profilePreviewMeta" class="profile-preview-meta">Metas batidas: 0</p>
@@ -285,8 +288,13 @@
                 <option value="spark">Spark</option>
               </select>
             </label>
+            <label>
+              Foto de perfil
+              <input id="profileAvatarFile" type="file" accept="image/png,image/jpeg,image/webp" />
+            </label>
           </div>
 
+          <button id="profileRemoveAvatarBtn" class="btn btn-ghost" type="button">Remover foto</button>
           <button id="profileSaveBtn" class="btn btn-primary" type="submit">Salvar perfil</button>
           <p id="profileFeedback" class="feedback" aria-live="polite"></p>
         </form>
@@ -302,6 +310,21 @@
       <div class="panel">
         <div id="rankingList" class="ranking-list" aria-live="polite"></div>
         <p id="rankingFeedback" class="feedback" aria-live="polite"></p>
+        <article id="rankingProfileSheet" class="ranking-profile-sheet hidden" aria-live="polite">
+          <div class="ranking-profile-head">
+            <strong>Perfil no ranking</strong>
+            <button id="rankingProfileClose" class="ranking-profile-close" type="button" aria-label="Fechar perfil do ranking">×</button>
+          </div>
+          <div class="ranking-profile-body">
+            <img id="rankingProfileAvatar" class="ranking-profile-avatar" src="" alt="Foto do usuário do ranking" />
+            <div class="ranking-profile-content">
+              <h3 id="rankingProfileName" class="ranking-profile-name">Usuário</h3>
+              <p id="rankingProfileTheme" class="ranking-profile-text">Tema</p>
+              <p id="rankingProfileGoals" class="ranking-profile-text">Metas batidas</p>
+              <p id="rankingProfileUpdated" class="ranking-profile-text">Atualizado</p>
+            </div>
+          </div>
+        </article>
       </div>
     </section>
   </main>
