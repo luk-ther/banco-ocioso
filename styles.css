@@ -330,8 +330,8 @@ main {
   position: absolute;
   right: 0;
   top: calc(100% + 0.55rem);
-  width: min(420px, calc(100vw - 1.4rem));
-  max-height: 700px;
+  width: min(360px, calc(100vw - 1.4rem));
+  max-height: min(76vh, 640px);
   border: 1px solid var(--line);
   border-radius: 16px;
   background: linear-gradient(170deg, #131722, #0f1117);
@@ -342,7 +342,7 @@ main {
   transform-origin: top right;
   pointer-events: none;
   visibility: hidden;
-  overflow: hidden;
+  overflow: auto;
   transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease;
 }
 
@@ -358,6 +358,7 @@ main {
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
+  margin-bottom: 0.65rem;
 }
 
 .auth-close {
@@ -368,6 +369,24 @@ main {
   width: 32px;
   height: 32px;
   cursor: pointer;
+}
+
+.auth-float-panel .auth-panel {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.auth-float-panel .auth-grid {
+  grid-template-columns: 1fr;
+}
+
+.auth-float-panel .auth-tabs {
+  margin-bottom: 0.7rem;
+}
+
+.auth-float-panel .btn {
+  min-height: 42px;
 }
 
 .feature-grid,
@@ -912,7 +931,8 @@ textarea:focus {
   .auth-float-panel {
     right: 0;
     top: calc(100% + 0.45rem);
-    width: min(420px, calc(100vw - 1.4rem));
+    width: min(360px, calc(100vw - 1.4rem));
+    max-height: min(72vh, 600px);
   }
 
   .support-widget {
