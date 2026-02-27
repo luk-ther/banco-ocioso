@@ -9,7 +9,7 @@
   <link rel="icon" type="image/png" href="img/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Manrope:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&family=Poppins:wght@400;600;700&family=Sora:wght@400;600;700;800&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -28,6 +28,8 @@
       <a href="#psicologia">Psicologia</a>
       <a href="#instrucoes">Instruções</a>
       <a href="#simulador">Cofres</a>
+      <a href="#perfil">Perfil</a>
+      <a href="#ranking">Ranking</a>
     </nav>
     
     <div class="auth-widget" aria-live="polite">
@@ -227,6 +229,79 @@
             <div id="achievementVaultList" class="vault-list" aria-live="polite"></div>
           </div>
         </section>
+      </div>
+    </section>
+
+    <section id="perfil" class="section reveal">
+      <div class="section-head">
+        <h2>Perfil do usuário</h2>
+        <p>Personalize seu nome, tema, cor e estilo visual.</p>
+      </div>
+
+      <div class="profile-grid">
+        <article id="profilePreviewCard" class="profile-preview" data-decoration="glow">
+          <p class="profile-preview-label">Pré-visualização</p>
+          <h3 id="profilePreviewName" class="profile-preview-name">Seu nome</h3>
+          <p id="profilePreviewTagline" class="profile-preview-tagline">Blindagem financeira ativa</p>
+          <p id="profilePreviewMeta" class="profile-preview-meta">Metas batidas: 0</p>
+        </article>
+
+        <form id="profileForm" class="panel profile-form" novalidate>
+          <div class="field-grid field-grid-4">
+            <label>
+              Nome público
+              <input id="profileDisplayName" type="text" maxlength="32" placeholder="Como seu nome aparece no ranking" required />
+            </label>
+            <label>
+              Tema
+              <select id="profileTheme" required>
+                <option value="neon">Neon</option>
+                <option value="ocean">Ocean</option>
+                <option value="sunset">Sunset</option>
+                <option value="graphite">Graphite</option>
+              </select>
+            </label>
+            <label>
+              Cor de destaque
+              <input id="profileAccentColor" type="color" value="#0ce0ff" />
+            </label>
+            <label>
+              Fonte do nome
+              <select id="profileNameFont" required>
+                <option value="sora">Sora</option>
+                <option value="manrope">Manrope</option>
+                <option value="space">Space Grotesk</option>
+                <option value="poppins">Poppins</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="field-grid">
+            <label>
+              Decoração
+              <select id="profileDecoration" required>
+                <option value="glow">Glow</option>
+                <option value="ring">Ring</option>
+                <option value="spark">Spark</option>
+              </select>
+            </label>
+          </div>
+
+          <button id="profileSaveBtn" class="btn btn-primary" type="submit">Salvar perfil</button>
+          <p id="profileFeedback" class="feedback" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+
+    <section id="ranking" class="section reveal">
+      <div class="section-head">
+        <h2>Ranking global</h2>
+        <p>Usuários com mais metas batidas.</p>
+      </div>
+
+      <div class="panel">
+        <div id="rankingList" class="ranking-list" aria-live="polite"></div>
+        <p id="rankingFeedback" class="feedback" aria-live="polite"></p>
       </div>
     </section>
   </main>

@@ -40,11 +40,26 @@ const supportToast = document.getElementById("supportToast");
 const authToggle = document.getElementById("authToggle");
 const authPanel = document.getElementById("authPanel");
 const authClose = document.getElementById("authClose");
+const profileForm = document.getElementById("profileForm");
+const profileDisplayNameInput = document.getElementById("profileDisplayName");
+const profileThemeSelect = document.getElementById("profileTheme");
+const profileAccentColorInput = document.getElementById("profileAccentColor");
+const profileNameFontSelect = document.getElementById("profileNameFont");
+const profileDecorationSelect = document.getElementById("profileDecoration");
+const profileFeedback = document.getElementById("profileFeedback");
+const profilePreviewCard = document.getElementById("profilePreviewCard");
+const profilePreviewName = document.getElementById("profilePreviewName");
+const profilePreviewTagline = document.getElementById("profilePreviewTagline");
+const profilePreviewMeta = document.getElementById("profilePreviewMeta");
+const rankingList = document.getElementById("rankingList");
+const rankingFeedback = document.getElementById("rankingFeedback");
 
 const vaults = [];
 let currentUser = null;
 let supabaseClient = null;
 let supabaseReady = false;
+let authToggleFixedWidth = "";
+let currentProfile = null;
 
 const observer = new IntersectionObserver(
   (entries) => {
@@ -66,6 +81,7 @@ setupMobileMenu();
 setupSupportWidget();
 setupAuthWidget();
 setupAuthUI();
+setupProfileUI();
 setupVaultHandlers();
 setupMoneyInputs();
 setupVaultGroupToggles();
@@ -77,8 +93,10 @@ async function init() {
   if (!supabaseReady) {
     setAuthError("Configure SUPABASE_URL e SUPABASE_ANON_KEY em supabase-config.js.");
     disableAuthForms();
+    resetProfileUI();
     updateVaultAccessState();
     renderVaults();
+    renderRanking([]);
     return;
   }
 
@@ -90,15 +108,23 @@ async function init() {
   currentUser = data?.session?.user || null;
   if (currentUser) {
     await loadVaultsFromDb();
+    await loadUserProfile();
+  } else {
+    resetProfileUI();
   }
+  await loadGlobalRanking();
 
   supabaseClient.auth.onAuthStateChange(async (_event, session) => {
     currentUser = session?.user || null;
     if (currentUser) {
       await loadVaultsFromDb();
+      await loadUserProfile();
     } else {
       vaults.splice(0, vaults.length);
+      currentProfile = null;
+      resetProfileUI();
     }
+    await loadGlobalRanking();
     updateAuthUI();
     updateVaultAccessState();
     renderVaults();
@@ -257,6 +283,442 @@ function setupAuthUI() {
   });
 }
 
+function setupProfileUI() {
+  if (!profileForm) {
+    return;
+  }
+
+  const previewFields = [
+    profileDisplayNameInput,
+    profileThemeSelect,
+    profileAccentColorInput,
+    profileNameFontSelect,
+    profileDecorationSelect,
+  ].filter(Boolean);
+
+  previewFields.forEach((field) => {
+    field.addEventListener("input", () => {
+      if (!currentUser) {
+        return;
+      }
+      const draft = collectProfileDraft(currentUser, currentProfile || getDefaultProfile(currentUser));
+      applyProfileAppearance(draft);
+      updateProfilePreview(draft);
+    });
+    field.addEventListener("change", () => {
+      if (!currentUser) {
+        return;
+      }
+      const draft = collectProfileDraft(currentUser, currentProfile || getDefaultProfile(currentUser));
+      applyProfileAppearance(draft);
+      updateProfilePreview(draft);
+    });
+  });
+
+  profileForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    if (!supabaseReady) {
+      setProfileError("Supabase não configurado.");
+      return;
+    }
+
+    if (!currentUser) {
+      setProfileError("Entre na sua conta para editar o perfil.");
+      return;
+    }
+
+    const draft = collectProfileDraft(currentUser, currentProfile || getDefaultProfile(currentUser));
+    const payload = {
+      user_id: currentUser.id,
+      display_name: draft.display_name,
+      theme_key: draft.theme_key,
+      accent_color: draft.accent_color,
+      name_font: draft.name_font,
+      decoration: draft.decoration,
+      goals_completed: countCompletedGoals(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabaseClient
+      .from("user_profiles")
+      .upsert(payload, { onConflict: "user_id" })
+      .select("*")
+      .single();
+
+    if (error) {
+      setProfileError(getFriendlyProfileError(error));
+      return;
+    }
+
+    currentProfile = normalizeProfile(data, currentUser);
+    hydrateProfileForm(currentProfile);
+    applyProfileAppearance(currentProfile);
+    updateProfilePreview(currentProfile);
+    updateAuthUI();
+    setProfileMessage("Perfil atualizado com sucesso.");
+    await loadGlobalRanking();
+  });
+}
+
+function setProfileFormDisabled(disabled) {
+  if (!profileForm) {
+    return;
+  }
+  profileForm.querySelectorAll("input, select, button").forEach((el) => {
+    el.disabled = disabled;
+  });
+}
+
+function setProfileMessage(message) {
+  if (!profileFeedback) {
+    return;
+  }
+  profileFeedback.classList.remove("error");
+  profileFeedback.textContent = message;
+}
+
+function setProfileError(message) {
+  if (!profileFeedback) {
+    return;
+  }
+  profileFeedback.classList.add("error");
+  profileFeedback.textContent = message;
+}
+
+function getFriendlyProfileError(error) {
+  const raw = String(error?.message || "").trim();
+  if (!raw) {
+    return "Não foi possível salvar o perfil agora. Tente novamente.";
+  }
+  if (raw.toLowerCase().includes("relation") || raw.toLowerCase().includes("user_profiles")) {
+    return "Tabela de perfil não encontrada. Execute o SQL atualizado no Supabase.";
+  }
+  return raw;
+}
+
+function getDefaultProfile(user) {
+  return {
+    user_id: user?.id || "",
+    display_name: getUserDisplayName(user),
+    theme_key: "neon",
+    accent_color: "#0ce0ff",
+    name_font: "sora",
+    decoration: "glow",
+    goals_completed: 0,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function normalizeProfile(input, user = currentUser) {
+  const safe = input && typeof input === "object" ? input : {};
+  const fallback = getDefaultProfile(user);
+  const theme = ["neon", "ocean", "sunset", "graphite"].includes(String(safe.theme_key || "").toLowerCase())
+    ? String(safe.theme_key).toLowerCase()
+    : fallback.theme_key;
+  const nameFont = ["sora", "manrope", "space", "poppins"].includes(String(safe.name_font || "").toLowerCase())
+    ? String(safe.name_font).toLowerCase()
+    : fallback.name_font;
+  const decoration = ["glow", "ring", "spark"].includes(String(safe.decoration || "").toLowerCase())
+    ? String(safe.decoration).toLowerCase()
+    : fallback.decoration;
+  const accent = isValidHexColor(safe.accent_color) ? String(safe.accent_color).toLowerCase() : fallback.accent_color;
+  const displayName = String(safe.display_name || fallback.display_name).trim().slice(0, 32) || fallback.display_name;
+  const goalsCompleted = Number.isFinite(Number(safe.goals_completed)) && Number(safe.goals_completed) >= 0
+    ? Math.floor(Number(safe.goals_completed))
+    : 0;
+
+  return {
+    user_id: String(safe.user_id || fallback.user_id || ""),
+    display_name: displayName,
+    theme_key: theme,
+    accent_color: accent,
+    name_font: nameFont,
+    decoration,
+    goals_completed: goalsCompleted,
+    updated_at: typeof safe.updated_at === "string" ? safe.updated_at : new Date().toISOString(),
+  };
+}
+
+function isValidHexColor(value) {
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value.trim());
+}
+
+function collectProfileDraft(user, fallbackProfile) {
+  const fallback = normalizeProfile(fallbackProfile, user);
+  const displayName = String(profileDisplayNameInput?.value || fallback.display_name).trim().slice(0, 32) || fallback.display_name;
+  const theme = String(profileThemeSelect?.value || fallback.theme_key).toLowerCase();
+  const accent = String(profileAccentColorInput?.value || fallback.accent_color).toLowerCase();
+  const nameFont = String(profileNameFontSelect?.value || fallback.name_font).toLowerCase();
+  const decoration = String(profileDecorationSelect?.value || fallback.decoration).toLowerCase();
+
+  return normalizeProfile(
+    {
+      ...fallback,
+      display_name: displayName,
+      theme_key: theme,
+      accent_color: accent,
+      name_font: nameFont,
+      decoration,
+    },
+    user
+  );
+}
+
+function hydrateProfileForm(profile) {
+  if (!profileForm || !profile) {
+    return;
+  }
+  profileDisplayNameInput.value = profile.display_name;
+  profileThemeSelect.value = profile.theme_key;
+  profileAccentColorInput.value = profile.accent_color;
+  profileNameFontSelect.value = profile.name_font;
+  profileDecorationSelect.value = profile.decoration;
+}
+
+function updateProfilePreview(profile) {
+  if (!profilePreviewName || !profilePreviewTagline || !profilePreviewMeta || !profilePreviewCard) {
+    return;
+  }
+  const safe = normalizeProfile(profile, currentUser);
+  profilePreviewName.textContent = safe.display_name;
+  profilePreviewTagline.textContent = "Blindagem financeira personalizada";
+  profilePreviewMeta.textContent = `Metas batidas: ${safe.goals_completed}`;
+  profilePreviewCard.dataset.decoration = safe.decoration;
+}
+
+function getNameFontFamily(fontKey) {
+  switch (String(fontKey || "").toLowerCase()) {
+    case "manrope":
+      return "'Manrope', sans-serif";
+    case "space":
+      return "'Space Grotesk', 'Sora', sans-serif";
+    case "poppins":
+      return "'Poppins', 'Sora', sans-serif";
+    case "sora":
+    default:
+      return "'Sora', sans-serif";
+  }
+}
+
+function applyProfileAppearance(profile) {
+  if (!document.body) {
+    return;
+  }
+
+  if (!profile) {
+    document.body.setAttribute("data-theme", "neon");
+    document.body.style.removeProperty("--user-accent");
+    const defaultFont = getNameFontFamily("sora");
+    if (authToggle) {
+      authToggle.style.fontFamily = defaultFont;
+    }
+    if (authUserName) {
+      authUserName.style.fontFamily = defaultFont;
+    }
+    if (profilePreviewName) {
+      profilePreviewName.style.fontFamily = defaultFont;
+    }
+    if (profilePreviewCard) {
+      profilePreviewCard.dataset.decoration = "glow";
+    }
+    return;
+  }
+
+  const safe = normalizeProfile(profile, currentUser);
+  document.body.setAttribute("data-theme", safe.theme_key);
+  document.body.style.setProperty("--user-accent", safe.accent_color);
+
+  const fontFamily = getNameFontFamily(safe.name_font);
+  if (authToggle) {
+    authToggle.style.fontFamily = fontFamily;
+  }
+  if (authUserName) {
+    authUserName.style.fontFamily = fontFamily;
+  }
+  if (profilePreviewName) {
+    profilePreviewName.style.fontFamily = fontFamily;
+  }
+  if (profilePreviewCard) {
+    profilePreviewCard.dataset.decoration = safe.decoration;
+  }
+}
+
+function resetProfileUI() {
+  const fallback = getDefaultProfile(currentUser);
+  currentProfile = currentUser ? fallback : null;
+  hydrateProfileForm(fallback);
+  updateProfilePreview(fallback);
+  applyProfileAppearance(currentProfile);
+  setProfileFormDisabled(!currentUser);
+  if (!currentUser) {
+    setProfileMessage("Entre na sua conta para editar seu perfil.");
+  } else {
+    setProfileMessage("");
+  }
+}
+
+async function loadUserProfile() {
+  if (!supabaseReady || !currentUser) {
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from("user_profiles")
+    .select("*")
+    .eq("user_id", currentUser.id)
+    .maybeSingle();
+
+  if (error) {
+    setProfileError(getFriendlyProfileError(error));
+    resetProfileUI();
+    return;
+  }
+
+  if (!data) {
+    const defaultProfile = normalizeProfile(getDefaultProfile(currentUser), currentUser);
+    const payload = {
+      user_id: currentUser.id,
+      display_name: defaultProfile.display_name,
+      theme_key: defaultProfile.theme_key,
+      accent_color: defaultProfile.accent_color,
+      name_font: defaultProfile.name_font,
+      decoration: defaultProfile.decoration,
+      goals_completed: countCompletedGoals(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const inserted = await supabaseClient
+      .from("user_profiles")
+      .upsert(payload, { onConflict: "user_id" })
+      .select("*")
+      .single();
+
+    if (inserted.error) {
+      setProfileError(getFriendlyProfileError(inserted.error));
+      currentProfile = defaultProfile;
+    } else {
+      currentProfile = normalizeProfile(inserted.data, currentUser);
+    }
+  } else {
+    currentProfile = normalizeProfile(data, currentUser);
+  }
+
+  hydrateProfileForm(currentProfile);
+  applyProfileAppearance(currentProfile);
+  updateProfilePreview(currentProfile);
+  setProfileFormDisabled(false);
+  setProfileMessage("");
+  await syncGoalsCompletedToProfile(false);
+}
+
+function countCompletedGoals() {
+  return vaults.reduce((count, vault) => (vault.hiddenBalance >= vault.goal ? count + 1 : count), 0);
+}
+
+async function syncGoalsCompletedToProfile(force = false) {
+  if (!supabaseReady || !currentUser || !currentProfile) {
+    return;
+  }
+
+  const completed = countCompletedGoals();
+  if (!force && completed === currentProfile.goals_completed) {
+    updateProfilePreview(currentProfile);
+    return;
+  }
+
+  currentProfile.goals_completed = completed;
+  currentProfile.updated_at = new Date().toISOString();
+  updateProfilePreview(currentProfile);
+
+  const payload = {
+    user_id: currentUser.id,
+    display_name: currentProfile.display_name,
+    theme_key: currentProfile.theme_key,
+    accent_color: currentProfile.accent_color,
+    name_font: currentProfile.name_font,
+    decoration: currentProfile.decoration,
+    goals_completed: currentProfile.goals_completed,
+    updated_at: currentProfile.updated_at,
+  };
+
+  const { error } = await supabaseClient
+    .from("user_profiles")
+    .upsert(payload, { onConflict: "user_id" });
+
+  if (!error) {
+    await loadGlobalRanking();
+  }
+}
+
+function getThemeLabel(themeKey) {
+  switch (themeKey) {
+    case "ocean":
+      return "Ocean";
+    case "sunset":
+      return "Sunset";
+    case "graphite":
+      return "Graphite";
+    case "neon":
+    default:
+      return "Neon";
+  }
+}
+
+async function loadGlobalRanking() {
+  if (!supabaseReady || !rankingList || !rankingFeedback) {
+    return;
+  }
+
+  rankingFeedback.classList.remove("error");
+  rankingFeedback.textContent = "";
+
+  const { data, error } = await supabaseClient
+    .from("user_profiles")
+    .select("user_id, display_name, goals_completed, theme_key, name_font, updated_at")
+    .order("goals_completed", { ascending: false })
+    .order("updated_at", { ascending: true })
+    .limit(50);
+
+  if (error) {
+    rankingFeedback.classList.add("error");
+    rankingFeedback.textContent = "Não foi possível carregar o ranking. Verifique o SQL da tabela user_profiles.";
+    renderRanking([]);
+    return;
+  }
+
+  renderRanking(Array.isArray(data) ? data : []);
+}
+
+function renderRanking(items) {
+  if (!rankingList) {
+    return;
+  }
+
+  if (!Array.isArray(items) || items.length === 0) {
+    rankingList.innerHTML = "<article class=\"ranking-item\"><span class=\"ranking-position\">-</span><div class=\"ranking-user\"><strong class=\"ranking-name\">Ainda sem dados no ranking</strong><span class=\"ranking-theme\">Complete metas para aparecer aqui.</span></div><span class=\"ranking-score\">0</span></article>";
+    return;
+  }
+
+  rankingList.innerHTML = items.map((item, index) => {
+    const safe = normalizeProfile(item, null);
+    const position = index + 1;
+    const isTop = position <= 3;
+    const fontFamily = getNameFontFamily(safe.name_font);
+    const goals = Number.isFinite(Number(safe.goals_completed)) ? Math.max(0, Math.floor(Number(safe.goals_completed))) : 0;
+    return `
+      <article class="ranking-item">
+        <span class="ranking-position ${isTop ? "top" : ""}">${position}</span>
+        <div class="ranking-user">
+          <strong class="ranking-name" style="font-family:${fontFamily}">${escapeHTML(safe.display_name)}</strong>
+          <span class="ranking-theme">Tema: ${getThemeLabel(safe.theme_key)}</span>
+        </div>
+        <span class="ranking-score">${goals} metas</span>
+      </article>
+    `;
+  }).join("");
+}
+
 function setupVaultHandlers() {
   rulesCheckbox.addEventListener("change", () => {
     updateVaultAccessState();
@@ -316,6 +778,7 @@ function setupVaultHandlers() {
       lockedMode,
       revealRequestAt: null,
       revealUntil: null,
+      revealViewsUsed: 0,
       lastReflection: "",
       goalReachedAt: null,
       celebrateUntil: null,
@@ -378,6 +841,9 @@ function renderVaults() {
   attachVaultEvents();
   setupMoneyInputs(document);
   animateVaultCards();
+  if (currentUser && currentProfile) {
+    void syncGoalsCompletedToProfile(false);
+  }
 }
 
 function buildVaultCard(vault, now) {
@@ -541,6 +1007,12 @@ function attachVaultEvents() {
       }
 
       if (action === "request") {
+        const revealStats = getRevealStatsByBalance(vault.hiddenBalance, vault.revealViewsUsed);
+        if (revealStats.remaining <= 0) {
+          showError(`Limite de visualizações atingido no cofre "${vault.name}" (${revealStats.used}/${revealStats.limit}).`);
+          return;
+        }
+
         vault.revealRequestAt = new Date().toISOString();
         vault.updatedAt = new Date().toISOString();
 
@@ -557,6 +1029,12 @@ function attachVaultEvents() {
       }
 
       if (action === "unlock") {
+        const revealStats = getRevealStatsByBalance(vault.hiddenBalance, vault.revealViewsUsed);
+        if (revealStats.remaining <= 0) {
+          showError(`Limite de visualizações atingido no cofre "${vault.name}" (${revealStats.used}/${revealStats.limit}).`);
+          return;
+        }
+
         const reflection = (form.querySelector("textarea")?.value || "").trim();
         if (reflection.length < 20) {
           showError("Escreva uma reflexão com pelo menos 20 caracteres para liberar visualização.");
@@ -569,12 +1047,19 @@ function attachVaultEvents() {
           return;
         }
 
+        const previousRevealViewsUsed = Number(vault.revealViewsUsed || 0);
+        const previousRevealUntil = vault.revealUntil;
+        const previousUpdatedAt = vault.updatedAt;
         vault.lastReflection = reflection;
+        vault.revealViewsUsed = previousRevealViewsUsed + 1;
         vault.revealUntil = new Date(Date.now() + 15000).toISOString();
         vault.updatedAt = new Date().toISOString();
 
         const unlockSave = await upsertVault(vault);
         if (unlockSave.error) {
+          vault.revealViewsUsed = previousRevealViewsUsed;
+          vault.revealUntil = previousRevealUntil;
+          vault.updatedAt = previousUpdatedAt;
           showError(unlockSave.error.message);
           return;
         }
@@ -726,6 +1211,9 @@ function sanitizeVault(input, fallbackId = "") {
     lockedMode: Boolean(input.lockedMode),
     revealRequestAt: typeof input.revealRequestAt === "string" ? input.revealRequestAt : null,
     revealUntil: typeof input.revealUntil === "string" ? input.revealUntil : null,
+    revealViewsUsed: Number.isFinite(Number(input.revealViewsUsed)) && Number(input.revealViewsUsed) >= 0
+      ? Math.floor(Number(input.revealViewsUsed))
+      : 0,
     lastReflection: typeof input.lastReflection === "string" ? input.lastReflection : "",
     goalReachedAt: typeof input.goalReachedAt === "string" ? input.goalReachedAt : null,
     celebrateUntil: typeof input.celebrateUntil === "string" ? input.celebrateUntil : null,
@@ -779,12 +1267,25 @@ function buildChallenge(vault) {
 }
 
 function buildLockedMode(vault, now) {
+  const revealStats = getRevealStatsByBalance(vault.hiddenBalance, vault.revealViewsUsed);
+  const counterMarkup = `<p class="vault-meta">Visualizações: ${revealStats.used}/${revealStats.limit} • Restantes: ${revealStats.remaining}</p>`;
+
+  if (revealStats.remaining <= 0) {
+    return `
+      <div class="locked-mode">
+        <p><strong>Modo Bloqueado:</strong> limite de visualizações atingido para este cofre.</p>
+        ${counterMarkup}
+      </div>
+    `;
+  }
+
   const lockState = getLockState(vault, now);
 
   if (lockState.type === "none") {
     return `
       <div class="locked-mode">
         <p><strong>Modo Bloqueado:</strong> para ver o valor real, inicie um pedido e aguarde 24h.</p>
+        ${counterMarkup}
         <form class="locked-actions lock-form" data-id="${vault.id}" data-action="request">
           <button type="submit" class="btn btn-ghost">Solicitar visualização do saldo</button>
         </form>
@@ -796,6 +1297,7 @@ function buildLockedMode(vault, now) {
     return `
       <div class="locked-mode">
         <p><strong>Modo Bloqueado:</strong> pedido em andamento. Tempo restante: ${lockState.remaining}.</p>
+        ${counterMarkup}
       </div>
     `;
   }
@@ -804,7 +1306,8 @@ function buildLockedMode(vault, now) {
     return `
       <div class="locked-mode">
         <p><strong>Modo Bloqueado:</strong> visualização temporária ativa.</p>
-        <p class="reveal-balance">Saldo visivel por alguns segundos: ${formatBRL(vault.hiddenBalance)}</p>
+        ${counterMarkup}
+        <p class="reveal-balance">Saldo visível por alguns segundos: ${formatBRL(vault.hiddenBalance)}</p>
       </div>
     `;
   }
@@ -812,12 +1315,40 @@ function buildLockedMode(vault, now) {
   return `
     <div class="locked-mode">
       <p><strong>Modo Bloqueado:</strong> liberado. Reflita antes de visualizar o valor.</p>
+      ${counterMarkup}
       <form class="locked-actions lock-form" data-id="${vault.id}" data-action="unlock">
-        <textarea placeholder="Por que voc? precisa ver este valor agora e como vai evitar gastar por impulso?" required></textarea>
+        <textarea placeholder="Por que você precisa ver este valor agora e como vai evitar gastar por impulso?" required></textarea>
         <button type="submit" class="btn btn-ghost">Liberar visualização por 15s</button>
       </form>
     </div>
   `;
+}
+
+function getRevealLimitByBalance(balance) {
+  const value = Number(balance) || 0;
+  if (value <= 1000) {
+    return 1;
+  }
+  if (value <= 3000) {
+    return 3;
+  }
+  if (value <= 6000) {
+    return 5;
+  }
+  if (value <= 20000) {
+    return 6;
+  }
+  return 6;
+}
+
+function getRevealStatsByBalance(balance, used) {
+  const limit = getRevealLimitByBalance(balance);
+  const usedSafe = Math.max(0, Math.floor(Number(used) || 0));
+  return {
+    limit,
+    used: Math.min(usedSafe, limit),
+    remaining: Math.max(0, limit - usedSafe),
+  };
 }
 
 function getLockState(vault, now) {
@@ -1063,6 +1594,8 @@ function setupAuthWidget() {
     return;
   }
 
+  lockAuthToggleWidth();
+
   authToggle.addEventListener("click", () => {
     const isOpen = authPanel.classList.toggle("is-open");
     authPanel.setAttribute("aria-hidden", String(!isOpen));
@@ -1105,15 +1638,46 @@ function closeAuthWidget() {
 }
 
 function updateAuthUI() {
+  lockAuthToggleWidth();
+
   if (currentUser) {
+    const displayName = currentProfile?.display_name || getUserDisplayName(currentUser);
     authGuest.classList.add("hidden");
     authUser.classList.remove("hidden");
-    authUserName.textContent = currentUser.user_metadata?.name || currentUser.email || "Usuário";
+    authUserName.textContent = displayName;
+    authToggle.textContent = displayName;
+    authToggle.title = displayName;
+    authToggle.setAttribute("aria-label", `Abrir conta de ${displayName}`);
   } else {
     authGuest.classList.remove("hidden");
     authUser.classList.add("hidden");
     authUserName.textContent = "";
+    authToggle.textContent = "Login";
+    authToggle.title = "Login";
+    authToggle.setAttribute("aria-label", "Abrir login");
   }
+}
+
+function getUserDisplayName(user) {
+  const fallback = "Usuário";
+  const raw = String(user?.user_metadata?.name || user?.email || fallback).trim();
+  if (!raw) {
+    return fallback;
+  }
+  if (raw.includes("@")) {
+    const emailName = raw.split("@")[0].trim();
+    return emailName || fallback;
+  }
+  return raw;
+}
+
+function lockAuthToggleWidth() {
+  if (!authToggle || authToggleFixedWidth) {
+    return;
+  }
+  const width = Math.ceil(authToggle.getBoundingClientRect().width);
+  authToggleFixedWidth = `${Math.max(width, 72)}px`;
+  authToggle.style.width = authToggleFixedWidth;
 }
 
 function toggleAuthTab(tab) {
