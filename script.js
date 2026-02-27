@@ -1054,11 +1054,15 @@ function setAuthError(message) {
 }
 
 function getFriendlyAuthError(error) {
-  const raw = String(error?.message || "").toLowerCase();
+  const rawMessage = String(error?.message || "").trim();
+  const raw = rawMessage.toLowerCase();
   if (raw.includes("email rate limit") || raw.includes("rate limit")) {
     return "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.";
   }
-  return String(error?.message || "Nao foi possivel concluir a autenticacao.");
+  if (!rawMessage || rawMessage === "{}" || rawMessage === "[object object]") {
+    return "Nao foi possivel concluir a autenticacao agora. Aguarde alguns minutos e tente novamente.";
+  }
+  return rawMessage;
 }
 
 function showError(message) {
