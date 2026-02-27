@@ -924,8 +924,16 @@ textarea:focus {
 @media (max-width: 960px) {
   .auth-widget {
     margin-left: 0;
-    grid-column: 1 / -1;
+    grid-column: auto;
     justify-self: end;
+    align-self: center;
+  }
+
+  .auth-toggle {
+    min-height: 34px;
+    padding: 0.38rem 0.82rem;
+    font-size: 0.82rem;
+    border-radius: 999px;
   }
 
   .auth-float-panel {
@@ -1036,7 +1044,7 @@ textarea:focus {
     border-radius: 16px;
     padding: 0.75rem 0.85rem;
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr auto auto;
     gap: 0.55rem;
     align-items: center;
   }
