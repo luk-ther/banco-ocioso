@@ -294,99 +294,63 @@ main {
 }
 
 .auth-widget {
-  position: fixed;
-  right: 1rem;
-  bottom: 5.1rem;
-  z-index: 41;
-  width: 56px;
-  height: 56px;
-  pointer-events: none;
+  position: relative;
+  z-index: 25;
+  flex-shrink: 0;
+  margin-left: 0.6rem;
 }
 
 .auth-toggle {
-  position: absolute;
-  right: 0;
-  bottom: 0;
+  position: relative;
   border: 1px solid transparent;
   border-radius: 999px;
-  width: 56px;
-  height: 56px;
-  min-height: 56px;
-  padding: 0;
-  font-size: 0;
-  line-height: 0;
+  min-height: 36px;
+  padding: 0.45rem 1rem;
+  font-size: 0.9rem;
+  line-height: 1;
   font-weight: 800;
   color: #001117;
   background: linear-gradient(135deg, var(--brand), #00b6ff 50%, var(--brand-2));
   box-shadow: 0 12px 28px rgba(12, 224, 255, 0.35);
   cursor: pointer;
-  transition: transform 0.25s ease, box-shadow 0.25s ease, opacity 0.2s ease;
-  pointer-events: auto;
-  z-index: 2;
-}
-
-.auth-toggle::before {
-  content: "👤";
-  font-size: 1.22rem;
-  line-height: 1;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.2s ease;
 }
 
 .auth-toggle:hover {
   transform: translateY(-2px);
   box-shadow: 0 14px 32px rgba(87, 255, 190, 0.35);
+  filter: saturate(1.08);
 }
 
 .auth-toggle.is-active {
-  opacity: 0;
-  transform: scale(0.7);
-  pointer-events: none;
+  box-shadow: 0 14px 34px rgba(87, 255, 190, 0.4);
 }
 
 .auth-float-panel {
   position: absolute;
   right: 0;
-  bottom: 0;
-  width: 56px;
-  max-height: 56px;
+  top: calc(100% + 0.55rem);
+  width: min(420px, calc(100vw - 1.4rem));
+  max-height: 700px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 16px;
   background: linear-gradient(170deg, #131722, #0f1117);
   box-shadow: var(--shadow);
-  padding: 0;
+  padding: 0.9rem;
   opacity: 0;
-  transform: scale(0.2);
-  transform-origin: bottom right;
+  transform: translateY(-8px) scale(0.98);
+  transform-origin: top right;
   pointer-events: none;
   visibility: hidden;
   overflow: hidden;
-  transition: opacity 0.28s ease, transform 0.28s ease, visibility 0.28s ease,
-    width 0.28s ease, max-height 0.28s ease, border-radius 0.28s ease, padding 0.28s ease, background 0.28s ease;
-}
-
-.auth-float-panel::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(135deg, var(--brand), #00b6ff 50%, var(--brand-2));
-  opacity: 1;
-  transition: opacity 0.28s ease;
-  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease;
 }
 
 .auth-float-panel.is-open {
-  width: min(420px, calc(100vw - 1.4rem));
-  max-height: 700px;
-  border-radius: 16px;
-  padding: 0.9rem;
   opacity: 1;
-  transform: scale(1);
+  transform: translateY(0) scale(1);
   pointer-events: auto;
   visibility: visible;
-}
-
-.auth-float-panel.is-open::before {
-  opacity: 0;
 }
 
 .auth-head {
@@ -940,32 +904,15 @@ textarea:focus {
 
 @media (max-width: 960px) {
   .auth-widget {
-    right: 0.7rem;
-    bottom: 5.0rem;
-    width: 56px;
-    height: 56px;
-  }
-
-  .auth-toggle {
-    width: 56px;
-    height: 56px;
-    min-height: 56px;
-    border-radius: 50%;
-    padding: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    margin-left: 0;
+    grid-column: 1 / -1;
+    justify-self: end;
   }
 
   .auth-float-panel {
-    width: 56px;
-    max-height: 56px;
-    transform-origin: bottom right;
-  }
-
-  .auth-float-panel.is-open {
+    right: 0;
+    top: calc(100% + 0.45rem);
     width: min(420px, calc(100vw - 1.4rem));
-    max-height: 700px;
   }
 
   .support-widget {
