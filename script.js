@@ -64,6 +64,28 @@ const rankingProfileTheme = document.getElementById("rankingProfileTheme");
 const rankingProfileGoals = document.getElementById("rankingProfileGoals");
 const rankingProfileCreated = document.getElementById("rankingProfileCreated");
 const rankingProfileUpdated = document.getElementById("rankingProfileUpdated");
+const publicProfileRoot = document.getElementById("publicProfileRoot");
+const publicProfileHeaderCopy = document.getElementById("publicProfileHeaderCopy");
+const publicProfileCard = document.getElementById("publicProfileCard");
+const publicProfileAvatar = document.getElementById("publicProfileAvatar");
+const publicProfileName = document.getElementById("publicProfileName");
+const publicProfileTagline = document.getElementById("publicProfileTagline");
+const publicProfileMeta = document.getElementById("publicProfileMeta");
+const publicFollowersCount = document.getElementById("publicFollowersCount");
+const publicFollowingCount = document.getElementById("publicFollowingCount");
+const publicFriendsCount = document.getElementById("publicFriendsCount");
+const publicGoalsCount = document.getElementById("publicGoalsCount");
+const publicProfileActions = document.getElementById("publicProfileActions");
+const followUserBtn = document.getElementById("followUserBtn");
+const friendActionBtn = document.getElementById("friendActionBtn");
+const publicProfileFeedback = document.getElementById("publicProfileFeedback");
+const publicAchievementsList = document.getElementById("publicAchievementsList");
+const publicChatPanel = document.getElementById("publicChatPanel");
+const publicChatStatus = document.getElementById("publicChatStatus");
+const publicChatMessages = document.getElementById("publicChatMessages");
+const publicChatForm = document.getElementById("publicChatForm");
+const publicChatInput = document.getElementById("publicChatInput");
+const publicChatFeedback = document.getElementById("publicChatFeedback");
 
 const vaults = [];
 let currentUser = null;
@@ -73,6 +95,15 @@ let authToggleFixedWidth = "";
 let currentProfile = null;
 let profileAvatarDraftUrl = "";
 let rankingCache = [];
+let publicProfileTargetId = "";
+let publicProfileTargetData = null;
+let socialRelationState = {
+  isFollowing: false,
+  friendshipId: "",
+  friendRequestOutgoingId: "",
+  friendRequestIncomingId: "",
+};
+let publicChatPollTimer = null;
 
 const observer = new IntersectionObserver(
   (entries) => {
@@ -96,6 +127,7 @@ setupAuthWidget();
 setupAuthUI();
 setupProfileUI();
 setupRankingInteractions();
+setupPublicProfileUI();
 setupVaultHandlers();
 setupMoneyInputs();
 setupVaultGroupToggles();
@@ -111,6 +143,7 @@ async function init() {
     updateVaultAccessState();
     renderVaults();
     renderRanking([]);
+    resetPublicProfileUI("Faça login e execute o SQL social para usar perfis públicos completos.");
     return;
   }
 
@@ -127,6 +160,7 @@ async function init() {
     resetProfileUI();
   }
   await loadGlobalRanking();
+  await loadPublicProfilePageData();
 
   supabaseClient.auth.onAuthStateChange(async (_event, session) => {
     currentUser = session?.user || null;
@@ -139,6 +173,7 @@ async function init() {
       resetProfileUI();
     }
     await loadGlobalRanking();
+    await loadPublicProfilePageData();
     updateAuthUI();
     updateVaultAccessState();
     renderVaults();
@@ -458,6 +493,23 @@ function getFriendlyProfileError(error) {
   if (raw.toLowerCase().includes("relation") || raw.toLowerCase().includes("user_profiles")) {
     return "Tabela de perfil não encontrada. Execute o SQL atualizado no Supabase.";
   }
+  return raw;
+}
+
+function getFriendlySocialError(error, fallbackMessage) {
+  const raw = String(error?.message || "").trim();
+  if (!raw) {
+    return fallbackMessage;
+  }
+
+  const lowered = raw.toLowerCase();
+  if (lowered.includes("relation") || lowered.includes("social_")) {
+    return "Recurso social não encontrado no banco. Execute o SQL atualizado no Supabase.";
+  }
+  if (lowered.includes("row-level security")) {
+    return "Permissão negada pelo banco. Verifique as políticas RLS do SQL atualizado.";
+  }
+
   return raw;
 }
 
@@ -898,6 +950,7 @@ function renderRanking(items) {
     const fontFamily = getNameFontFamily(safe.name_font);
     const goals = Number.isFinite(Number(safe.goals_completed)) ? Math.max(0, Math.floor(Number(safe.goals_completed))) : 0;
     const avatarSrc = escapeAttr(getAvatarSrc(safe));
+    const profileHref = `perfil-publico.html?u=${encodeURIComponent(safe.user_id)}`;
     return `
       <article class="ranking-item" tabindex="0" role="button" aria-label="Ver perfil de ${escapeHTML(safe.display_name)}" data-user-id="${safe.user_id}">
         <span class="ranking-position ${isTop ? "top" : ""}">${position}</span>
@@ -906,7 +959,10 @@ function renderRanking(items) {
           <strong class="ranking-name" style="font-family:${fontFamily}">${escapeHTML(safe.display_name)}</strong>
           <span class="ranking-theme">Tema: ${getThemeLabel(safe.theme_key)}</span>
         </div>
-        <span class="ranking-score">${goals} metas</span>
+        <div class="ranking-actions">
+          <span class="ranking-score">${goals} metas</span>
+          <a class="btn btn-ghost ranking-more" href="${profileHref}">Ver mais</a>
+        </div>
       </article>
     `;
   }).join("");
@@ -920,6 +976,9 @@ function setupRankingInteractions() {
   rankingList.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof Element)) {
+      return;
+    }
+    if (target.closest(".ranking-more")) {
       return;
     }
     const item = target.closest(".ranking-item[data-user-id]");
@@ -943,6 +1002,9 @@ function setupRankingInteractions() {
     }
     const target = event.target;
     if (!(target instanceof Element)) {
+      return;
+    }
+    if (target.closest(".ranking-more")) {
       return;
     }
     const item = target.closest(".ranking-item[data-user-id]");
@@ -998,6 +1060,582 @@ function closeRankingProfile() {
   rankingProfileSheet.style.removeProperty("--ranking-accent");
   rankingProfileSheet.removeAttribute("data-decoration");
   rankingProfileSheet.classList.add("hidden");
+}
+
+function setupPublicProfileUI() {
+  if (!publicProfileRoot) {
+    return;
+  }
+
+  if (followUserBtn) {
+    followUserBtn.addEventListener("click", async () => {
+      if (!currentUser || !publicProfileTargetId || currentUser.id === publicProfileTargetId) {
+        return;
+      }
+
+      followUserBtn.disabled = true;
+      const shouldFollow = !socialRelationState.isFollowing;
+
+      const op = shouldFollow
+        ? supabaseClient.from("social_follows").insert({ follower_id: currentUser.id, followed_id: publicProfileTargetId })
+        : supabaseClient.from("social_follows").delete().eq("follower_id", currentUser.id).eq("followed_id", publicProfileTargetId);
+
+      const { error } = await op;
+      followUserBtn.disabled = false;
+
+      if (error) {
+        setPublicProfileError(getFriendlySocialError(error, "Não foi possível atualizar o seguimento."));
+        return;
+      }
+
+      setPublicProfileMessage(shouldFollow ? "Agora você está seguindo este perfil." : "Você deixou de seguir este perfil.");
+      await loadPublicProfilePageData();
+    });
+  }
+
+  if (friendActionBtn) {
+    friendActionBtn.addEventListener("click", async () => {
+      if (!currentUser || !publicProfileTargetId || currentUser.id === publicProfileTargetId) {
+        return;
+      }
+
+      friendActionBtn.disabled = true;
+      const [userA, userB] = canonicalPairIds(currentUser.id, publicProfileTargetId);
+
+      let error = null;
+      if (socialRelationState.friendshipId) {
+        const res = await supabaseClient
+          .from("social_friendships")
+          .delete()
+          .eq("id", socialRelationState.friendshipId);
+        error = res.error;
+      } else if (socialRelationState.friendRequestIncomingId) {
+        const updateReq = await supabaseClient
+          .from("social_friend_requests")
+          .update({ status: "accepted", updated_at: new Date().toISOString() })
+          .eq("id", socialRelationState.friendRequestIncomingId);
+        error = updateReq.error;
+
+        if (!error) {
+          const createFriend = await supabaseClient
+            .from("social_friendships")
+            .upsert(
+              { user_a: userA, user_b: userB, created_at: new Date().toISOString() },
+              { onConflict: "user_a,user_b" }
+            );
+          error = createFriend.error;
+        }
+      } else if (socialRelationState.friendRequestOutgoingId) {
+        const cancelReq = await supabaseClient
+          .from("social_friend_requests")
+          .update({ status: "canceled", updated_at: new Date().toISOString() })
+          .eq("id", socialRelationState.friendRequestOutgoingId);
+        error = cancelReq.error;
+      } else {
+        const sendReq = await supabaseClient
+          .from("social_friend_requests")
+          .insert({
+            requester_id: currentUser.id,
+            addressee_id: publicProfileTargetId,
+            status: "pending",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+        error = sendReq.error;
+      }
+
+      friendActionBtn.disabled = false;
+      if (error) {
+        setPublicProfileError(getFriendlySocialError(error, "Não foi possível atualizar amizade."));
+        return;
+      }
+
+      setPublicProfileMessage("Status de amizade atualizado.");
+      await loadPublicProfilePageData();
+    });
+  }
+
+  if (publicChatForm && publicChatInput) {
+    publicChatForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!currentUser || !publicProfileTargetId || !socialRelationState.friendshipId) {
+        setPublicChatError("Chat disponível apenas para amigos.");
+        return;
+      }
+
+      const message = String(publicChatInput.value || "").trim();
+      if (!message) {
+        return;
+      }
+      if (message.length > 1200) {
+        setPublicChatError("Mensagem muito longa (máximo 1200 caracteres).");
+        return;
+      }
+
+      const { error } = await supabaseClient
+        .from("social_messages")
+        .insert({
+          sender_id: currentUser.id,
+          receiver_id: publicProfileTargetId,
+          content: message,
+          created_at: new Date().toISOString(),
+        });
+
+      if (error) {
+        setPublicChatError(getFriendlySocialError(error, "Não foi possível enviar mensagem."));
+        return;
+      }
+
+      publicChatInput.value = "";
+      setPublicChatMessage("Mensagem enviada.");
+      await loadPublicChatMessages();
+    });
+  }
+}
+
+function resetPublicProfileUI(message = "") {
+  if (!publicProfileRoot) {
+    return;
+  }
+  publicProfileTargetId = "";
+  publicProfileTargetData = null;
+  socialRelationState = {
+    isFollowing: false,
+    friendshipId: "",
+    friendRequestOutgoingId: "",
+    friendRequestIncomingId: "",
+  };
+  stopPublicChatPolling();
+
+  if (publicProfileName) {
+    publicProfileName.textContent = "Usuário";
+  }
+  if (publicProfileTagline) {
+    publicProfileTagline.textContent = "Perfil público";
+  }
+  if (publicProfileMeta) {
+    publicProfileMeta.textContent = "Conta criada em: -";
+  }
+  if (publicProfileAvatar) {
+    publicProfileAvatar.src = buildAvatarPlaceholder("BO", "#0ce0ff");
+  }
+  if (publicFollowersCount) {
+    publicFollowersCount.textContent = "0";
+  }
+  if (publicFollowingCount) {
+    publicFollowingCount.textContent = "0";
+  }
+  if (publicFriendsCount) {
+    publicFriendsCount.textContent = "0";
+  }
+  if (publicGoalsCount) {
+    publicGoalsCount.textContent = "0";
+  }
+  if (publicAchievementsList) {
+    publicAchievementsList.innerHTML = "";
+  }
+  if (publicProfileActions) {
+    publicProfileActions.classList.add("hidden");
+  }
+  if (publicChatPanel) {
+    publicChatPanel.classList.add("hidden");
+  }
+  if (publicChatMessages) {
+    publicChatMessages.innerHTML = "";
+  }
+  if (publicProfileFeedback) {
+    publicProfileFeedback.classList.remove("error");
+    publicProfileFeedback.textContent = message;
+  }
+}
+
+async function loadPublicProfilePageData() {
+  if (!publicProfileRoot || !supabaseReady) {
+    return;
+  }
+
+  const targetId = String(new URLSearchParams(window.location.search).get("u") || "").trim();
+  if (!targetId) {
+    resetPublicProfileUI("Perfil não informado. Abra um usuário pelo ranking.");
+    return;
+  }
+  publicProfileTargetId = targetId;
+
+  const { data: profileRow, error: profileError } = await supabaseClient
+    .from("user_profiles")
+    .select("*")
+    .eq("user_id", publicProfileTargetId)
+    .maybeSingle();
+
+  if (profileError) {
+    resetPublicProfileUI("Não foi possível carregar o perfil. Execute o SQL social no Supabase.");
+    setPublicProfileError(getFriendlySocialError(profileError, "Falha ao carregar perfil."));
+    return;
+  }
+
+  if (!profileRow) {
+    resetPublicProfileUI("Perfil não encontrado.");
+    return;
+  }
+
+  const safeProfile = normalizeProfile(profileRow, null);
+  publicProfileTargetData = safeProfile;
+
+  const [followersCount, followingCount, friendsCount] = await Promise.all([
+    countByField("social_follows", "followed_id", publicProfileTargetId),
+    countByField("social_follows", "follower_id", publicProfileTargetId),
+    countFriendships(publicProfileTargetId),
+  ]);
+
+  renderPublicProfileCard(safeProfile, {
+    followers: followersCount,
+    following: followingCount,
+    friends: friendsCount,
+    goals: safeProfile.goals_completed,
+  });
+
+  if (!currentUser || currentUser.id === publicProfileTargetId) {
+    if (publicProfileActions) {
+      publicProfileActions.classList.add("hidden");
+    }
+    if (currentUser && currentUser.id === publicProfileTargetId) {
+      setPublicProfileMessage("Este é o seu perfil público.");
+    } else {
+      setPublicProfileMessage("Faça login para seguir, adicionar amigos e conversar.");
+    }
+    if (publicChatPanel) {
+      publicChatPanel.classList.add("hidden");
+    }
+    stopPublicChatPolling();
+    return;
+  }
+
+  await loadSocialRelationState();
+  renderPublicSocialActions();
+  await syncPublicChatVisibility();
+}
+
+async function loadSocialRelationState() {
+  if (!currentUser || !publicProfileTargetId || currentUser.id === publicProfileTargetId) {
+    socialRelationState = {
+      isFollowing: false,
+      friendshipId: "",
+      friendRequestOutgoingId: "",
+      friendRequestIncomingId: "",
+    };
+    return;
+  }
+
+  const [userA, userB] = canonicalPairIds(currentUser.id, publicProfileTargetId);
+  const [followRes, outgoingReqRes, incomingReqRes, friendshipRes] = await Promise.all([
+    supabaseClient
+      .from("social_follows")
+      .select("follower_id")
+      .eq("follower_id", currentUser.id)
+      .eq("followed_id", publicProfileTargetId)
+      .maybeSingle(),
+    supabaseClient
+      .from("social_friend_requests")
+      .select("id")
+      .eq("requester_id", currentUser.id)
+      .eq("addressee_id", publicProfileTargetId)
+      .eq("status", "pending")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabaseClient
+      .from("social_friend_requests")
+      .select("id")
+      .eq("requester_id", publicProfileTargetId)
+      .eq("addressee_id", currentUser.id)
+      .eq("status", "pending")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabaseClient
+      .from("social_friendships")
+      .select("id")
+      .eq("user_a", userA)
+      .eq("user_b", userB)
+      .maybeSingle(),
+  ]);
+
+  socialRelationState = {
+    isFollowing: Boolean(followRes?.data),
+    friendshipId: String(friendshipRes?.data?.id || ""),
+    friendRequestOutgoingId: String(outgoingReqRes?.data?.id || ""),
+    friendRequestIncomingId: String(incomingReqRes?.data?.id || ""),
+  };
+}
+
+function renderPublicSocialActions() {
+  if (!publicProfileActions || !followUserBtn || !friendActionBtn) {
+    return;
+  }
+  publicProfileActions.classList.remove("hidden");
+
+  followUserBtn.textContent = socialRelationState.isFollowing ? "Deixar de seguir" : "Seguir";
+
+  if (socialRelationState.friendshipId) {
+    friendActionBtn.textContent = "Desfazer amizade";
+  } else if (socialRelationState.friendRequestIncomingId) {
+    friendActionBtn.textContent = "Aceitar amizade";
+  } else if (socialRelationState.friendRequestOutgoingId) {
+    friendActionBtn.textContent = "Cancelar pedido";
+  } else {
+    friendActionBtn.textContent = "Adicionar amigo";
+  }
+}
+
+async function syncPublicChatVisibility() {
+  if (!publicChatPanel || !publicChatStatus) {
+    return;
+  }
+
+  if (!socialRelationState.friendshipId) {
+    publicChatPanel.classList.add("hidden");
+    publicChatStatus.textContent = "Disponível apenas quando a amizade é aceita.";
+    if (publicChatMessages) {
+      publicChatMessages.innerHTML = "";
+    }
+    stopPublicChatPolling();
+    return;
+  }
+
+  publicChatPanel.classList.remove("hidden");
+  publicChatStatus.textContent = "Chat ativo entre amigos.";
+  await loadPublicChatMessages();
+  startPublicChatPolling();
+}
+
+async function loadPublicChatMessages() {
+  if (!publicChatMessages || !currentUser || !publicProfileTargetId) {
+    return;
+  }
+
+  const filter = `and(sender_id.eq.${currentUser.id},receiver_id.eq.${publicProfileTargetId}),and(sender_id.eq.${publicProfileTargetId},receiver_id.eq.${currentUser.id})`;
+  const { data, error } = await supabaseClient
+    .from("social_messages")
+    .select("id, sender_id, receiver_id, content, created_at")
+    .or(filter)
+    .order("created_at", { ascending: true })
+    .limit(200);
+
+  if (error) {
+    setPublicChatError(getFriendlySocialError(error, "Não foi possível carregar mensagens."));
+    return;
+  }
+
+  if (!Array.isArray(data) || data.length === 0) {
+    publicChatMessages.innerHTML = "<article class=\"chat-bubble\"><span class=\"chat-meta\">Sem mensagens ainda</span><p class=\"chat-content\">Inicie a conversa.</p></article>";
+    return;
+  }
+
+  publicChatMessages.innerHTML = data.map((item) => {
+    const mine = item.sender_id === currentUser.id;
+    const when = item.created_at ? new Date(item.created_at).toLocaleString("pt-BR") : "-";
+    return `
+      <article class="chat-bubble ${mine ? "mine" : ""}">
+        <span class="chat-meta">${mine ? "Você" : "Amigo"} • ${when}</span>
+        <p class="chat-content">${escapeHTML(String(item.content || ""))}</p>
+      </article>
+    `;
+  }).join("");
+
+  publicChatMessages.scrollTop = publicChatMessages.scrollHeight;
+}
+
+function startPublicChatPolling() {
+  stopPublicChatPolling();
+  publicChatPollTimer = window.setInterval(() => {
+    if (!publicChatPanel || publicChatPanel.classList.contains("hidden")) {
+      return;
+    }
+    void loadPublicChatMessages();
+  }, 7000);
+}
+
+function stopPublicChatPolling() {
+  if (publicChatPollTimer) {
+    clearInterval(publicChatPollTimer);
+    publicChatPollTimer = null;
+  }
+}
+
+function setPublicProfileMessage(message) {
+  if (!publicProfileFeedback) {
+    return;
+  }
+  publicProfileFeedback.classList.remove("error");
+  publicProfileFeedback.textContent = message;
+}
+
+function setPublicProfileError(message) {
+  if (!publicProfileFeedback) {
+    return;
+  }
+  publicProfileFeedback.classList.add("error");
+  publicProfileFeedback.textContent = message;
+}
+
+function setPublicChatMessage(message) {
+  if (!publicChatFeedback) {
+    return;
+  }
+  publicChatFeedback.classList.remove("error");
+  publicChatFeedback.textContent = message;
+}
+
+function setPublicChatError(message) {
+  if (!publicChatFeedback) {
+    return;
+  }
+  publicChatFeedback.classList.add("error");
+  publicChatFeedback.textContent = message;
+}
+
+function canonicalPairIds(idA, idB) {
+  return String(idA) < String(idB) ? [String(idA), String(idB)] : [String(idB), String(idA)];
+}
+
+async function countByField(table, field, value) {
+  const { count, error } = await supabaseClient
+    .from(table)
+    .select("*", { count: "exact", head: true })
+    .eq(field, value);
+  if (error) {
+    return 0;
+  }
+  return Number(count || 0);
+}
+
+async function countFriendships(userId) {
+  const [a, b] = await Promise.all([
+    countByField("social_friendships", "user_a", userId),
+    countByField("social_friendships", "user_b", userId),
+  ]);
+  return Number(a || 0) + Number(b || 0);
+}
+
+function renderPublicProfileCard(profile, stats) {
+  if (!publicProfileCard || !publicProfileName || !publicProfileTagline || !publicProfileMeta) {
+    return;
+  }
+  const safe = normalizeProfile(profile, null);
+  const createdAt = safe.created_at ? new Date(safe.created_at).toLocaleDateString("pt-BR") : "-";
+
+  if (publicProfileHeaderCopy) {
+    publicProfileHeaderCopy.textContent = `Perfil de ${safe.display_name}`;
+  }
+  publicProfileCard.dataset.decoration = safe.decoration;
+  publicProfileCard.style.setProperty("--user-accent", safe.accent_color);
+  publicProfileName.textContent = safe.display_name;
+  publicProfileName.style.fontFamily = getNameFontFamily(safe.name_font);
+  publicProfileName.style.color = safe.accent_color;
+  publicProfileTagline.textContent = `Tema ${getThemeLabel(safe.theme_key)} • ${safe.decoration}`;
+  publicProfileMeta.textContent = `Conta criada em: ${createdAt}`;
+
+  if (publicProfileAvatar) {
+    publicProfileAvatar.src = getAvatarSrc(safe);
+    publicProfileAvatar.alt = `Foto de ${safe.display_name}`;
+  }
+
+  if (publicFollowersCount) {
+    publicFollowersCount.textContent = String(stats.followers || 0);
+  }
+  if (publicFollowingCount) {
+    publicFollowingCount.textContent = String(stats.following || 0);
+  }
+  if (publicFriendsCount) {
+    publicFriendsCount.textContent = String(stats.friends || 0);
+  }
+  if (publicGoalsCount) {
+    publicGoalsCount.textContent = String(stats.goals || 0);
+  }
+
+  renderPublicAchievements(safe, stats);
+}
+
+function getAchievementCatalog(stats) {
+  const goals = Number(stats.goals || 0);
+  const followers = Number(stats.followers || 0);
+  const friends = Number(stats.friends || 0);
+
+  return [
+    {
+      id: "goal_1",
+      icon: "🏆",
+      name: "Primeira meta",
+      copy: "Bateu a primeira meta no Banco Ocioso.",
+      unlocked: goals >= 1,
+      progress: `${Math.min(goals, 1)}/1`,
+    },
+    {
+      id: "goal_5",
+      icon: "🥈",
+      name: "Colecionador prata",
+      copy: "Acumulou 5 metas concluídas.",
+      unlocked: goals >= 5,
+      progress: `${Math.min(goals, 5)}/5`,
+    },
+    {
+      id: "goal_10",
+      icon: "🥇",
+      name: "Colecionador ouro",
+      copy: "Acumulou 10 metas concluídas.",
+      unlocked: goals >= 10,
+      progress: `${Math.min(goals, 10)}/10`,
+    },
+    {
+      id: "followers_1",
+      icon: "🤝",
+      name: "Primeiro seguidor",
+      copy: "Recebeu o primeiro seguidor.",
+      unlocked: followers >= 1,
+      progress: `${Math.min(followers, 1)}/1`,
+    },
+    {
+      id: "followers_10",
+      icon: "🌟",
+      name: "Influência crescente",
+      copy: "Alcançou 10 seguidores.",
+      unlocked: followers >= 10,
+      progress: `${Math.min(followers, 10)}/10`,
+    },
+    {
+      id: "friends_1",
+      icon: "🫂",
+      name: "Primeira amizade",
+      copy: "Conectou com um amigo na plataforma.",
+      unlocked: friends >= 1,
+      progress: `${Math.min(friends, 1)}/1`,
+    },
+    {
+      id: "friends_5",
+      icon: "🛡️",
+      name: "Círculo forte",
+      copy: "Formou uma rede com 5 amigos.",
+      unlocked: friends >= 5,
+      progress: `${Math.min(friends, 5)}/5`,
+    },
+  ];
+}
+
+function renderPublicAchievements(profile, stats) {
+  if (!publicAchievementsList) {
+    return;
+  }
+  const catalog = getAchievementCatalog(stats);
+  publicAchievementsList.innerHTML = catalog.map((item) => `
+    <article class="achievement-card ${item.unlocked ? "" : "locked"}">
+      <div class="achievement-head">
+        <span class="achievement-icon">${item.icon}</span>
+        <strong class="achievement-name">${escapeHTML(item.name)}</strong>
+      </div>
+      <p class="achievement-copy">${escapeHTML(item.copy)}</p>
+      <p class="achievement-state">${item.unlocked ? "Troféu coletado" : `Progresso ${item.progress}`}</p>
+    </article>
+  `).join("");
 }
 
 function setupVaultHandlers() {

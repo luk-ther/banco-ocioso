@@ -734,6 +734,19 @@ main {
   color: var(--brand-2);
 }
 
+.ranking-actions {
+  display: grid;
+  gap: 0.38rem;
+  justify-items: end;
+}
+
+.ranking-more {
+  min-height: 34px;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.8rem;
+  border-radius: 10px;
+}
+
 .ranking-profile-sheet {
   --ranking-accent: var(--brand);
   margin-top: 0.9rem;
@@ -823,6 +836,163 @@ main {
   margin: 0.28rem 0 0;
   color: var(--muted);
   font-size: 0.88rem;
+}
+
+.public-profile-grid {
+  margin-top: 1.1rem;
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 1rem;
+}
+
+.public-profile-card {
+  min-height: 100%;
+}
+
+.public-stats-grid {
+  margin-top: 0.9rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.public-stat-box {
+  border: 1px solid #2f3440;
+  border-radius: 11px;
+  padding: 0.55rem 0.65rem;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.public-stat-box span {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.public-stat-box strong {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 1rem;
+}
+
+.public-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.6rem;
+}
+
+.public-actions .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.public-section-title {
+  margin: 0.5rem 0 0.65rem;
+  font-size: 1rem;
+}
+
+.achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.achievement-card {
+  border: 1px solid #2d3545;
+  border-radius: 12px;
+  padding: 0.65rem;
+  background: rgba(255, 255, 255, 0.015);
+  display: grid;
+  gap: 0.28rem;
+}
+
+.achievement-card.locked {
+  opacity: 0.52;
+  filter: grayscale(0.4);
+}
+
+.achievement-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.achievement-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.09);
+  font-size: 0.95rem;
+}
+
+.achievement-name {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.achievement-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.achievement-state {
+  margin: 0.08rem 0 0;
+  font-size: 0.76rem;
+  color: var(--brand-2);
+  font-weight: 700;
+}
+
+.public-chat {
+  margin-top: 1rem;
+}
+
+.chat-messages {
+  margin-top: 0.6rem;
+  max-height: 320px;
+  overflow: auto;
+  display: grid;
+  gap: 0.55rem;
+  padding-right: 0.2rem;
+}
+
+.chat-bubble {
+  border: 1px solid #2d3545;
+  border-radius: 12px;
+  padding: 0.55rem 0.65rem;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.chat-bubble.mine {
+  border-color: rgba(12, 224, 255, 0.45);
+  background: rgba(12, 224, 255, 0.08);
+}
+
+.chat-meta {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.chat-content {
+  margin: 0;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat-form {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 0.65rem;
 }
 
 .field-grid {
@@ -1401,7 +1571,10 @@ select:focus {
   .field-grid-4,
   .toggle-row,
   .motivation-grid,
-  .profile-grid {
+  .profile-grid,
+  .public-profile-grid,
+  .public-actions,
+  .achievements-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1409,14 +1582,19 @@ select:focus {
     grid-template-columns: auto auto 1fr;
   }
 
-  .ranking-score {
+  .ranking-actions {
     grid-column: 3;
     justify-self: end;
+    justify-items: end;
   }
 
   .ranking-profile-body {
     grid-template-columns: 1fr;
     justify-items: start;
+  }
+
+  .public-stats-grid {
+    grid-template-columns: 1fr 1fr;
   }
 
   .header {
