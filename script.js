@@ -1,4 +1,4 @@
-const formatBRL = (value) => {
+﻿const formatBRL = (value) => {
   const safeValue = Number.isFinite(Number(value)) ? Number(value) : 0;
   const absolute = Math.abs(safeValue);
   const fixed = absolute.toFixed(2);
@@ -213,7 +213,21 @@ function setupAuthUI() {
         setAuthError(getFriendlyAuthError(error));
         return;
       }
+      const existingUserDetected = Boolean(
+        data?.user &&
+          Array.isArray(data.user.identities) &&
+          data.user.identities.length === 0
+      );
 
+      if (existingUserDetected) {
+        setAuthError("Ja existe uma conta com este e-mail. Tente entrar ou recuperar a senha.");
+        return;
+      }
+
+      if (!data?.user) {
+        setAuthError("Nao foi possivel criar sua conta agora. Tente novamente em instantes.");
+        return;
+      }
       if (data.session) {
         setAuthMessage("Conta criada e login efetuado.");
       } else {
@@ -376,6 +390,14 @@ function buildVaultCard(vault, now) {
   const depositsLeft = estimateDepositsLeft(vault);
   const challengeMarkup = vault.challengeMode ? buildChallenge(vault) : "";
   const lockedMarkup = vault.lockedMode && !isGoalReached ? buildLockedMode(vault, now) : "";
+  const depositFormMarkup = isGoalReached
+    ? "<p class=\"vault-meta\">Meta concluída. Novos aportes estão bloqueados neste cofre.</p>"
+    : `
+        <form class="deposit-form" data-id="${vault.id}">
+          <input class="money-input" type="text" inputmode="numeric" autocomplete="off" placeholder="Registrar novo aporte ($)" required />
+          <button class="btn btn-ghost" type="submit">Registrar aporte</button>
+        </form>
+      `;
 
   return `
       <article class="vault-card ${isGoalReached ? "goal-reached" : ""} ${isCelebrating ? "goal-celebrating" : ""}">
@@ -421,10 +443,7 @@ function buildVaultCard(vault, now) {
         ${challengeMarkup}
         ${lockedMarkup}
 
-        <form class="deposit-form" data-id="${vault.id}">
-          <input class="money-input" type="text" inputmode="numeric" autocomplete="off" placeholder="Registrar novo aporte ($)" required />
-          <button class="btn btn-ghost" type="submit">Registrar aporte</button>
-        </form>
+        ${depositFormMarkup}
 
         <button class="btn btn-danger delete-vault-btn" type="button" data-id="${vault.id}">
           Excluir meta
@@ -479,6 +498,10 @@ function attachVaultEvents() {
 
       const vault = vaults.find((item) => item.id === id);
       if (!vault) {
+        return;
+      }
+      if (vault.hiddenBalance >= vault.goal) {
+        showError(`A meta "${vault.name}" já foi concluída. Novos aportes estão bloqueados.`);
         return;
       }
 
@@ -790,7 +813,7 @@ function buildLockedMode(vault, now) {
     <div class="locked-mode">
       <p><strong>Modo Bloqueado:</strong> liberado. Reflita antes de visualizar o valor.</p>
       <form class="locked-actions lock-form" data-id="${vault.id}" data-action="unlock">
-        <textarea placeholder="Por que você precisa ver este valor agora e como vai evitar gastar por impulso?" required></textarea>
+        <textarea placeholder="Por que voc? precisa ver este valor agora e como vai evitar gastar por impulso?" required></textarea>
         <button type="submit" class="btn btn-ghost">Liberar visualização por 15s</button>
       </form>
     </div>
@@ -829,7 +852,7 @@ function getStatusByProgress(progress) {
     return "🏁 Meta em reta final";
   }
   if (progress >= 40) {
-    return "🚠 Meta em andamento";
+    return "🚀 Meta em andamento";
   }
   return "👷‍♀️ Base da reserva em construção";
 }
@@ -1112,20 +1135,68 @@ function setAuthError(message) {
 }
 
 function getFriendlyAuthError(error) {
+  const rawCode = String(error?.code || "").trim().toLowerCase();
+  const rawStatus = Number(error?.status || 0);
   const rawMessage = String(error?.message || error?.error_description || "").trim();
   const raw = rawMessage.toLowerCase();
-  if (raw.includes("email rate limit") || raw.includes("rate limit")) {
+
+  if (
+    rawCode.includes("user_already_exists") ||
+    rawCode.includes("email_address_taken") ||
+    raw.includes("already registered") ||
+    raw.includes("already exists") ||
+    raw.includes("ja existe")
+  ) {
+    return "Ja existe uma conta com este e-mail. Tente entrar ou recuperar a senha.";
+  }
+
+  if (
+    rawCode.includes("email_not_confirmed") ||
+    raw.includes("email not confirmed")
+  ) {
+    return "Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada e spam.";
+  }
+
+  if (
+    rawCode.includes("invalid_email") ||
+    raw.includes("invalid email")
+  ) {
+    return "E-mail invalido. Revise o endereco digitado e tente novamente.";
+  }
+
+  if (
+    rawCode.includes("weak_password") ||
+    raw.includes("password should be") ||
+    raw.includes("password is too weak")
+  ) {
+    return "Senha fraca. Use pelo menos 6 caracteres com letras e numeros.";
+  }
+
+  if (
+    rawCode.includes("signup_disabled") ||
+    raw.includes("signups not allowed")
+  ) {
+    return "Cadastro temporariamente desativado na configuracao do Supabase.";
+  }
+
+  if (raw.includes("email rate limit") || raw.includes("rate limit") || rawStatus === 429) {
     return "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.";
   }
+
   if (raw.includes("failed to fetch") || raw.includes("networkerror") || raw.includes("network request failed")) {
-    return "Falha de conexão com o Supabase. Verifique internet, URL do projeto e chave pública.";
+    return "Falha de conexao com o Supabase. Verifique internet, URL do projeto e chave publica.";
   }
+
+  if (rawStatus >= 500) {
+    return "Falha temporaria no servidor de autenticacao. Tente novamente em alguns minutos.";
+  }
+
   if (!rawMessage || rawMessage === "{}" || rawMessage === "[object object]") {
-    return "Não foi possível concluir a autenticação agora. Aguarde alguns minutos e tente novamente.";
+    return "Nao foi possivel concluir a autenticacao agora. Aguarde alguns minutos e tente novamente.";
   }
+
   return rawMessage;
 }
-
 function showError(message) {
   feedback.textContent = message;
   feedback.classList.add("error");
@@ -1173,3 +1244,4 @@ function applyVaultGroupState(sectionNode, buttonNode, collapsed) {
   buttonNode.setAttribute("aria-expanded", String(!collapsed));
   buttonNode.textContent = collapsed ? "Expandir" : "Minimizar";
 }
+
