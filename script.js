@@ -40,6 +40,8 @@ const supportToast = document.getElementById("supportToast");
 const authToggle = document.getElementById("authToggle");
 const authPanel = document.getElementById("authPanel");
 const authClose = document.getElementById("authClose");
+const bottomAuthToggle = document.getElementById("bottomAuthToggle");
+const bottomAuthLabel = document.getElementById("bottomAuthLabel");
 const profileForm = document.getElementById("profileForm");
 const profileDisplayNameInput = document.getElementById("profileDisplayName");
 const profileThemeSelect = document.getElementById("profileTheme");
@@ -124,6 +126,7 @@ setupShortcutScroll();
 setupMobileMenu();
 setupSupportWidget();
 setupAuthWidget();
+setupBottomNav();
 setupAuthUI();
 setupProfileUI();
 setupRankingInteractions();
@@ -2382,6 +2385,58 @@ function handleGoalTransition(vault, previousBalance) {
   }, 6100);
 }
 
+function setupBottomNav() {
+  updateBottomNavActiveState();
+
+  if (bottomAuthToggle) {
+    bottomAuthToggle.addEventListener("click", (event) => {
+      event.preventDefault();
+      if (!authPanel || !authToggle) {
+        return;
+      }
+      const isOpen = !authPanel.classList.contains("is-open");
+      setAuthPanelState(isOpen);
+    });
+  }
+
+  window.addEventListener("hashchange", () => {
+    updateBottomNavActiveState();
+  });
+}
+
+function updateBottomNavActiveState() {
+  const navItems = document.querySelectorAll(".app-bottom-nav a.app-nav-item[href]");
+  if (navItems.length === 0) {
+    return;
+  }
+
+  const currentPath = window.location.pathname.split("/").pop() || "index.html";
+  const currentHash = window.location.hash || "";
+
+  navItems.forEach((item) => {
+    const href = item.getAttribute("href") || "";
+    let isActive = false;
+
+    if (href.startsWith("#")) {
+      if (currentPath.toLowerCase().endsWith("index.html") || currentPath === "") {
+        isActive = currentHash === href || (href === "#inicio" && currentHash === "");
+      }
+    } else {
+      const [pathPart, hashPart] = href.split("#");
+      const normalizedPath = (pathPart || "").split("/").pop() || "index.html";
+      if (normalizedPath.toLowerCase() === currentPath.toLowerCase()) {
+        if (!hashPart) {
+          isActive = true;
+        } else if (currentPath.toLowerCase().endsWith("index.html")) {
+          isActive = currentHash === `#${hashPart}`;
+        }
+      }
+    }
+
+    item.classList.toggle("is-active", isActive);
+  });
+}
+
 function setupShortcutScroll() {
   const shortcutLinks = document.querySelectorAll('a[href^="#"]');
   shortcutLinks.forEach((link) => {
@@ -2402,6 +2457,7 @@ function setupShortcutScroll() {
       void target.offsetWidth;
       target.classList.add("section-focus");
       setTimeout(() => target.classList.remove("section-focus"), 900);
+      updateBottomNavActiveState();
       closeMobileMenu();
     });
   });
@@ -2524,10 +2580,8 @@ function setupAuthWidget() {
   lockAuthToggleWidth();
 
   authToggle.addEventListener("click", () => {
-    const isOpen = authPanel.classList.toggle("is-open");
-    authPanel.setAttribute("aria-hidden", String(!isOpen));
-    authToggle.setAttribute("aria-expanded", String(isOpen));
-    authToggle.classList.toggle("is-active", isOpen);
+    const isOpen = !authPanel.classList.contains("is-open");
+    setAuthPanelState(isOpen);
   });
 
   authClose.addEventListener("click", () => {
@@ -2555,13 +2609,22 @@ function setupAuthWidget() {
 }
 
 function closeAuthWidget() {
+  setAuthPanelState(false);
+}
+
+function setAuthPanelState(isOpen) {
   if (!authToggle || !authPanel) {
     return;
   }
-  authPanel.classList.remove("is-open");
-  authPanel.setAttribute("aria-hidden", "true");
-  authToggle.setAttribute("aria-expanded", "false");
-  authToggle.classList.remove("is-active");
+  authPanel.classList.toggle("is-open", isOpen);
+  authPanel.setAttribute("aria-hidden", String(!isOpen));
+  authToggle.setAttribute("aria-expanded", String(isOpen));
+  authToggle.classList.toggle("is-active", isOpen);
+
+  if (bottomAuthToggle) {
+    bottomAuthToggle.setAttribute("aria-expanded", String(isOpen));
+    bottomAuthToggle.classList.toggle("is-active", isOpen);
+  }
 }
 
 function updateAuthUI() {
@@ -2579,6 +2642,13 @@ function updateAuthUI() {
     authToggle.textContent = displayName;
     authToggle.title = displayName;
     authToggle.setAttribute("aria-label", `Abrir conta de ${displayName}`);
+    if (bottomAuthLabel) {
+      bottomAuthLabel.textContent = "Conta";
+    }
+    if (bottomAuthToggle) {
+      bottomAuthToggle.title = displayName;
+      bottomAuthToggle.setAttribute("aria-label", `Abrir conta de ${displayName}`);
+    }
   } else {
     authGuest.classList.remove("hidden");
     authUser.classList.add("hidden");
@@ -2586,6 +2656,13 @@ function updateAuthUI() {
     authToggle.textContent = "Login";
     authToggle.title = "Login";
     authToggle.setAttribute("aria-label", "Abrir login");
+    if (bottomAuthLabel) {
+      bottomAuthLabel.textContent = "Login";
+    }
+    if (bottomAuthToggle) {
+      bottomAuthToggle.title = "Login";
+      bottomAuthToggle.setAttribute("aria-label", "Abrir login");
+    }
   }
 }
 
