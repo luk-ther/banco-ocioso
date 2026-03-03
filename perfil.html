@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Banco Ocioso | Cofres</title>
-  <meta name="description" content="Banco Ocioso: área de cofres para registrar metas e aportes com foco em autocontrole." />
+  <title>Banco Ocioso | Perfil</title>
+  <meta name="description" content="Pré-visualização do seu perfil no Banco Ocioso." />
   <link rel="icon" type="image/svg+xml" href="img/favicon.svg" />
   <link rel="icon" type="image/png" href="img/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -93,118 +93,44 @@
   </header>
 
   <main>
-    <section id="simulador" class="section reveal visible">
-      <article class="vault-hero">
-        <div class="vault-hero-copy">
-          <p class="kicker">Painel principal</p>
-          <h2>Cofres</h2>
-          <p>Registre seus aportes com consistência, acompanhe evolução sem gatilho visual e mantenha foco na disciplina.</p>
-          <div class="vault-hero-actions">
-            <a href="#vaultForm" class="btn btn-primary">Criar novo cofre</a>
-            <a href="#vaultGroupActive" class="btn btn-ghost">Ver metas ativas</a>
-          </div>
-        </div>
-
-        <div class="vault-hero-stats">
-          <article class="vault-stat-card">
-            <span class="vault-stat-label">Total de cofres</span>
-            <strong id="vaultDashTotal" class="vault-stat-value">0</strong>
-          </article>
-          <article class="vault-stat-card">
-            <span class="vault-stat-label">Em andamento</span>
-            <strong id="vaultDashActive" class="vault-stat-value">0</strong>
-          </article>
-          <article class="vault-stat-card">
-            <span class="vault-stat-label">Conquistas</span>
-            <strong id="vaultDashCompleted" class="vault-stat-value">0</strong>
-          </article>
-          <article class="vault-stat-card vault-stat-card-wide">
-            <div class="vault-stat-row">
-              <span class="vault-stat-label">Progresso médio</span>
-              <strong id="vaultDashProgress" class="vault-stat-mini">0%</strong>
-            </div>
-            <div class="vault-stat-progress">
-              <span id="vaultDashProgressBar" style="width: 0%;"></span>
-            </div>
-            <p id="vaultDashBest" class="vault-stat-foot">Melhor cofre: -</p>
-          </article>
-        </div>
-
-        <span class="vault-hero-orb" aria-hidden="true"></span>
-      </article>
-
-      <div class="panel vault-rules-panel">
-        <p class="vault-meta">Para criar cofre, confirme as regras de uso do método.</p>
-        <label class="check">
-          <input id="confirmRules" type="checkbox" />
-          <span>Li as instruções e vou registrar os mesmos aportes feitos no banco real.</span>
-        </label>
+    <section id="profileHubRoot" class="section reveal visible">
+      <div class="section-head">
+        <h2>Perfil</h2>
+        <p>Sua pré-visualização pública e atalhos de personalização.</p>
       </div>
 
-      <form id="vaultForm" class="panel vault-form-panel" novalidate>
-        <div class="field-grid field-grid-4">
-          <label>
-            Nome do cofre
-            <input id="vaultName" type="text" placeholder="Ex.: Reserva de Emergência" required />
-          </label>
-          <label>
-            Meta ($)
-            <input id="vaultGoal" class="money-input" type="text" inputmode="numeric" autocomplete="off" placeholder="$ 0,00" required />
-          </label>
-          <label>
-            Aporte inicial ($)
-            <input id="vaultDeposit" class="money-input" type="text" inputmode="numeric" autocomplete="off" placeholder="$ 0,00" />
-          </label>
-          <label>
-            Depósito médio esperado ($)
-            <input id="vaultAvgDeposit" class="money-input" type="text" inputmode="numeric" autocomplete="off" placeholder="$ 0,00" required />
-          </label>
-        </div>
+      <div id="profileHubGuest" class="panel hidden">
+        <p class="section-copy">Entre na sua conta para ver sua pré-visualização de perfil.</p>
+        <button id="profileHubOpenLogin" class="btn btn-primary" type="button">Entrar na conta</button>
+      </div>
 
-        <div class="toggle-row">
-          <label class="switch-field">
-            <input id="challengeMode" type="checkbox" checked />
-            <span>Modo Desafio: 30 dias sem quebrar o cofre</span>
-          </label>
-          <label class="switch-field">
-            <input id="lockedMode" type="checkbox" checked />
-            <span>Modo Bloqueado: 24h + reflexão para ver o valor</span>
-          </label>
-        </div>
+      <div id="profileHubUser" class="profile-grid hidden">
+        <article id="profilePreviewCard" class="profile-preview" data-decoration="glow">
+          <div class="profile-preview-banner" aria-hidden="true"></div>
+          <p class="profile-preview-label">Pré-visualização</p>
+          <div class="profile-preview-avatar-wrap">
+            <img id="profilePreviewAvatar" class="profile-preview-avatar" src="" alt="Foto de perfil" />
+          </div>
+          <h3 id="profilePreviewName" class="profile-preview-name">Seu nome</h3>
+          <p id="profilePreviewTagline" class="profile-preview-tagline">Blindagem financeira ativa</p>
+          <p id="profilePreviewMeta" class="profile-preview-meta">Metas batidas: 0</p>
+        </article>
 
-        <button id="createVaultBtn" type="submit" class="btn btn-primary" disabled>Criar cofre</button>
-        <p id="formFeedback" class="feedback" aria-live="polite"></p>
-      </form>
-
-      <div class="vault-groups">
-        <section id="vaultGroupActive" class="vault-group">
-          <div class="vault-group-head">
-            <h3 class="vault-group-title">Metas em andamento</h3>
-            <button id="toggleActiveVaults" class="vault-group-toggle" type="button" aria-expanded="true">
-              Minimizar
-            </button>
+        <article class="panel profile-hub-panel">
+          <h3 id="profileHubDisplayName">Conta</h3>
+          <p class="section-copy">Visual inspirado em perfil de comunidade: personalize aparência, nome e identidade pública.</p>
+          <div class="profile-hub-actions">
+            <a class="btn btn-primary" href="personalizacao.html">Personalizar perfil</a>
+            <a class="btn btn-ghost" href="ranking.html">Ver ranking global</a>
+            <a class="btn btn-ghost" href="perfil-publico.html">Abrir perfil público</a>
           </div>
-          <div class="vault-group-content">
-            <div id="activeVaultList" class="vault-list" aria-live="polite"></div>
-          </div>
-        </section>
-        <section id="vaultGroupAchievements" class="vault-group">
-          <div class="vault-group-head">
-            <h3 class="vault-group-title">Conquistas (cofres concluídos)</h3>
-            <button id="toggleAchievementVaults" class="vault-group-toggle" type="button" aria-expanded="true">
-              Minimizar
-            </button>
-          </div>
-          <div class="vault-group-content">
-            <div id="achievementVaultList" class="vault-list" aria-live="polite"></div>
-          </div>
-        </section>
+        </article>
       </div>
     </section>
   </main>
 
 <nav class="app-bottom-nav" aria-label="Navegação principal do app">
-    <a class="app-nav-item" href="index.html" aria-current="page" aria-label="Cofres">
+    <a class="app-nav-item" href="index.html" aria-label="Cofres">
       <span class="app-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 9.5V20h16V9.5M2 10l10-8 10 8"/><path d="M9 20v-6h6v6"/></svg></span>
       <span class="app-nav-label">Cofres</span>
     </a>
@@ -216,7 +142,7 @@
       <span class="app-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 17H5l-2 2V9a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v4"/><path d="M18 8v1"/><path d="M18 11a4 4 0 0 1 4 4c0 2.2-1.8 4-4 4s-4-1.8-4-4 1.8-4 4-4z"/></svg></span>
       <span class="app-nav-label">Notificações</span>
     </a>
-    <a class="app-nav-item" href="perfil.html" aria-label="Perfil">
+    <a class="app-nav-item" href="perfil.html" aria-current="page" aria-label="Perfil">
       <span class="app-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10z"/><path d="M3 21a9 9 0 0 1 18 0"/></svg></span>
       <span class="app-nav-label">Perfil</span>
     </a>

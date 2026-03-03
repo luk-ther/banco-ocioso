@@ -35,7 +35,7 @@ window.SUPABASE_ANON_KEY = "SUA_ANON_KEY";
 
 - Login e cadastro: Supabase Auth
 - Cofres: tabela `public.vaults` com RLS por usuario
-- Perfil publico: tabela `public.user_profiles`
+- Perfil público: tabela `public.user_profiles`
 - Social: seguidores, pedidos de amizade, amizades e chat entre amigos (`social_*`)
 - Dados sincronizados entre navegadores/dispositivos da mesma conta
 
@@ -44,4 +44,4 @@ window.SUPABASE_ANON_KEY = "SUA_ANON_KEY";
 - `supabase-config.js`: credenciais do projeto
 - `supabase-schema.sql`: estrutura de cofres, perfil e social com RLS
 - `script.js`: integracao Auth + banco + ranking + social
-- `perfil-publico.html`: pagina de perfil publico (abrir por `ranking.html` > `Ver mais`)
+- `perfil-publico.html`: página de perfil público (abrir por `ranking.html` > `Ver mais`)

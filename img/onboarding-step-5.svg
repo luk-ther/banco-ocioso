@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-label="Exemplo de registrar aporte no Banco Ocioso">
+  <defs>
+    <linearGradient id="bg5" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#09111f" />
+      <stop offset="100%" stop-color="#11243a" />
+    </linearGradient>
+    <linearGradient id="ok5" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0ce0ff" />
+      <stop offset="100%" stop-color="#57ffbe" />
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="url(#bg5)" />
+  <rect x="170" y="90" width="940" height="540" rx="30" fill="#070b14" stroke="#2f3b55" stroke-width="3" />
+  <text x="230" y="160" fill="#eff5ff" font-size="40" font-family="Sora, Arial, sans-serif" font-weight="700">Registrar aporte</text>
+  <text x="230" y="206" fill="#b8c6e2" font-size="27" font-family="Manrope, Arial, sans-serif">Sempre que guardar no banco, registre aqui no mesmo momento.</text>
+
+  <rect x="230" y="252" width="820" height="110" rx="14" fill="#10192a" />
+  <text x="265" y="317" fill="#d4e0f7" font-size="33" font-family="Manrope, Arial, sans-serif">Valor do aporte: $ 50,00</text>
+
+  <rect x="230" y="386" width="820" height="110" rx="14" fill="url(#ok5)" />
+  <text x="505" y="451" fill="#00131a" font-size="35" font-family="Sora, Arial, sans-serif" font-weight="800">Registrar</text>
+
+  <rect x="230" y="520" width="820" height="66" rx="12" fill="#0f1728" />
+  <text x="264" y="562" fill="#7df7d0" font-size="28" font-family="Manrope, Arial, sans-serif">Aporte salvo com sucesso.</text>
+</svg>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Banco Ocioso | Introdução</title>
+  <meta name="description" content="Introdução em etapas do Banco Ocioso para configurar seu método de cofres com disciplina." />
+  <link rel="icon" type="image/svg+xml" href="img/favicon.svg" />
+  <link rel="icon" type="image/png" href="img/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&family=Poppins:wght@400;600;700&family=Sora:wght@400;600;700;800&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-grid" aria-hidden="true"></div>
+
+  <header class="header">
+    <a class="brand" href="onboarding.html">
+      <span class="brand-dot"></span>
+      Banco Ocioso
+    </a>
+  </header>
+
+  <main class="onboarding-main">
+    <section class="section reveal visible">
+      <div class="section-head">
+        <h2>Guia rápido em slides</h2>
+        <p id="onboardingStepCounter">Etapa 1 de 5</p>
+      </div>
+
+      <article class="panel onboarding-slider">
+        <div class="onboarding-slides" aria-live="polite">
+          <section class="onboarding-slide is-active" data-step="1">
+            <div class="onboarding-slide-copy">
+              <p class="kicker">Passo 1</p>
+              <h3>Abra seu app do banco</h3>
+              <p>Comece pelo aplicativo do seu banco e acesse a área de cofrinho/cofre para criar a base da meta.</p>
+            </div>
+            <img src="img/onboarding-step-1.svg" alt="Exemplo de tela do app do banco com área de cofres destacada." loading="lazy" />
+          </section>
+
+          <section class="onboarding-slide" data-step="2">
+            <div class="onboarding-slide-copy">
+              <p class="kicker">Passo 2</p>
+              <h3>Crie o mesmo cofre no Banco Ocioso</h3>
+              <p>Abra a aba Cofres aqui e registre o mesmo objetivo, para manter seu acompanhamento sincronizado.</p>
+            </div>
+            <img src="img/onboarding-step-2.svg" alt="Exemplo da página de cofres do Banco Ocioso com botão de criar cofre." loading="lazy" />
+          </section>
+
+          <section class="onboarding-slide" data-step="3">
+            <div class="onboarding-slide-copy">
+              <p class="kicker">Passo 3</p>
+              <h3>Defina a mesma meta de valor</h3>
+              <p>Use o mesmo valor no banco e no Banco Ocioso para garantir que o progresso represente sua meta real.</p>
+            </div>
+            <img src="img/onboarding-step-3.svg" alt="Exemplo de campo de meta preenchido no app do banco e no Banco Ocioso." loading="lazy" />
+          </section>
+
+          <section class="onboarding-slide" data-step="4">
+            <div class="onboarding-slide-copy">
+              <p class="kicker">Passo 4</p>
+              <h3>Ative ocultar saldo no banco</h3>
+              <p>Se seu banco permitir, deixe o valor do cofre oculto para reduzir gatilho e manter disciplina.</p>
+            </div>
+            <img src="img/onboarding-step-4.svg" alt="Exemplo de configuração para ocultar valor guardado no cofre do banco." loading="lazy" />
+          </section>
+
+          <section class="onboarding-slide" data-step="5">
+            <div class="onboarding-slide-copy">
+              <p class="kicker">Passo 5</p>
+              <h3>Registre todo aporte também aqui</h3>
+              <p>Sempre que guardar no banco real, registre o mesmo aporte no Banco Ocioso para manter a simulação fiel.</p>
+            </div>
+            <img src="img/onboarding-step-5.svg" alt="Exemplo de registro de aporte na tela de cofre do Banco Ocioso." loading="lazy" />
+          </section>
+        </div>
+
+        <div class="onboarding-dots" id="onboardingDots" aria-label="Indicadores dos slides"></div>
+
+        <div class="onboarding-controls">
+          <button id="onboardingPrevBtn" class="btn btn-ghost" type="button">Anterior</button>
+          <button id="onboardingNextBtn" class="btn btn-primary" type="button">Próximo</button>
+        </div>
+      </article>
+
+      <article class="onboarding-cofres-preview">
+        <div class="section-head">
+          <h2>Cofres</h2>
+          <p>Registre seus aportes e acompanhe progresso sem gatilho visual.</p>
+        </div>
+
+        <div class="panel">
+          <p class="vault-meta">Para criar cofre, confirme as regras de uso do método.</p>
+          <label class="check">
+            <input type="checkbox" />
+            <span>Li as instruções e vou registrar os mesmos aportes feitos no banco real.</span>
+          </label>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const storageKey = "bo_onboarding_seen_v1";
+      const slides = Array.from(document.querySelectorAll(".onboarding-slide"));
+      const counter = document.getElementById("onboardingStepCounter");
+      const dotsRoot = document.getElementById("onboardingDots");
+      const prevBtn = document.getElementById("onboardingPrevBtn");
+      const nextBtn = document.getElementById("onboardingNextBtn");
+      let currentIndex = 0;
+
+      const sanitizeNext = (raw) => {
+        const value = String(raw || "").trim();
+        if (!value) return "index.html";
+        if (value.includes("://") || value.startsWith("//")) return "index.html";
+        const normalized = value.replace(/^\//, "");
+        if (!/^[a-z0-9._/?#=&%-]+$/i.test(normalized)) return "index.html";
+        const page = normalized.split("?")[0].split("#")[0].toLowerCase();
+        if (!page.endsWith(".html") || page === "login.html" || page === "onboarding.html") {
+          return "index.html";
+        }
+        return normalized;
+      };
+
+      const params = new URLSearchParams(window.location.search);
+      const destination = sanitizeNext(params.get("next"));
+
+      const finishOnboarding = () => {
+        try {
+          localStorage.setItem(storageKey, "1");
+        } catch (_error) {
+          // Se localStorage não estiver disponível, continua sem bloquear.
+        }
+        window.location.href = destination;
+      };
+
+      const render = () => {
+        slides.forEach((slide, index) => {
+          slide.classList.toggle("is-active", index === currentIndex);
+        });
+
+        if (counter) {
+          counter.textContent = `Etapa ${currentIndex + 1} de ${slides.length}`;
+        }
+
+        if (prevBtn) {
+          prevBtn.disabled = currentIndex === 0;
+        }
+
+        if (nextBtn) {
+          const last = currentIndex === slides.length - 1;
+          nextBtn.textContent = last ? "Concluir" : "Próximo";
+        }
+
+        if (dotsRoot) {
+          dotsRoot.innerHTML = slides
+            .map((_, index) => `
+              <button
+                type="button"
+                class="onboarding-dot ${index === currentIndex ? "is-active" : ""}"
+                data-index="${index}"
+                aria-label="Ir para etapa ${index + 1}"
+              ></button>
+            `)
+            .join("");
+        }
+      };
+
+      if (dotsRoot) {
+        dotsRoot.addEventListener("click", (event) => {
+          const target = event.target;
+          if (!(target instanceof Element)) return;
+          const dot = target.closest(".onboarding-dot[data-index]");
+          if (!dot) return;
+          const next = Number(dot.getAttribute("data-index"));
+          if (Number.isInteger(next) && next >= 0 && next < slides.length) {
+            currentIndex = next;
+            render();
+          }
+        });
+      }
+
+      if (prevBtn) {
+        prevBtn.addEventListener("click", () => {
+          if (currentIndex > 0) {
+            currentIndex -= 1;
+            render();
+          }
+        });
+      }
+
+      if (nextBtn) {
+        nextBtn.addEventListener("click", () => {
+          if (currentIndex >= slides.length - 1) {
+            finishOnboarding();
+            return;
+          }
+          currentIndex += 1;
+          render();
+        });
+      }
+
+      render();
+    })();
+  </script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Banco Ocioso | Perfil Público</title>
   <meta name="description" content="Perfil público de usuários do Banco Ocioso com conquistas, seguidores e amizade." />
   <link rel="icon" type="image/svg+xml" href="img/favicon.svg" />
@@ -16,25 +16,17 @@
   <div class="bg-grid" aria-hidden="true"></div>
 
   <header class="header">
-    <a class="brand" href="index.html#inicio">
-      <span class="brand-dot"></span>
-      Banco Ocioso
-    </a>
-    <button id="menuToggle" class="menu-toggle" type="button" aria-expanded="false" aria-controls="mainNav">
-      Menu
-    </button>
+    <a class="brand" href="index.html"><span class="brand-dot"></span>Banco Ocioso</a>
+    <button id="menuToggle" class="menu-toggle" type="button" aria-expanded="false" aria-controls="mainNav">Menu</button>
     <nav id="mainNav" class="nav">
-      <a href="index.html#como-funciona">Como funciona</a>
-      <a href="index.html#simulador">Cofres</a>
-      <a href="personalizacao.html">Personalização</a>
-      <a href="ranking.html">Ranking</a>
+      <a href="index.html">Cofres</a>
+      <a href="chats.html">Chats</a>
+      <a href="notificacoes.html">Notificações</a>
+      <a href="perfil.html">Perfil</a>
     </nav>
 
     <div class="auth-widget" aria-live="polite">
-      <button id="authToggle" class="auth-toggle" type="button" aria-label="Abrir login" aria-expanded="false" aria-controls="authPanel">
-        Login
-      </button>
-
+      <button id="authToggle" class="auth-toggle" type="button" aria-label="Abrir login" aria-expanded="false" aria-controls="authPanel">Login</button>
       <div id="authPanel" class="auth-float-panel" aria-hidden="true">
         <div class="auth-head">
           <strong>Acesso da conta</strong>
@@ -49,32 +41,17 @@
 
           <form id="loginForm" class="auth-form" novalidate>
             <div class="field-grid auth-grid">
-              <label>
-                E-mail
-                <input id="loginEmail" type="email" placeholder="voce@email.com" required />
-              </label>
-              <label>
-                Senha
-                <input id="loginPassword" type="password" placeholder="Sua senha" required />
-              </label>
+              <label>E-mail<input id="loginEmail" type="email" placeholder="voce@email.com" required /></label>
+              <label>Senha<input id="loginPassword" type="password" placeholder="Sua senha" required /></label>
             </div>
             <button class="btn btn-primary" type="submit">Entrar agora</button>
           </form>
 
           <form id="registerForm" class="auth-form hidden" novalidate>
             <div class="field-grid auth-grid">
-              <label>
-                E-mail
-                <input id="registerEmail" type="email" placeholder="voce@email.com" required />
-              </label>
-              <label>
-                Nome
-                <input id="registerName" type="text" placeholder="Seu nome" required />
-              </label>
-              <label>
-                Senha
-                <input id="registerPassword" type="password" placeholder="Minimo 6 caracteres" required />
-              </label>
+              <label>E-mail<input id="registerEmail" type="email" placeholder="voce@email.com" required /></label>
+              <label>Nome<input id="registerName" type="text" placeholder="Seu nome" required /></label>
+              <label>Senha<input id="registerPassword" type="password" placeholder="Minimo 6 caracteres" required /></label>
             </div>
             <button class="btn btn-primary" type="submit">Criar conta</button>
           </form>
@@ -82,8 +59,8 @@
 
         <div id="authUser" class="auth-panel hidden">
           <p class="auth-welcome">Conectado como <strong id="authUserName"></strong>.</p>
-          <a class="btn btn-primary auth-user-link" href="personalizacao.html">Abrir personalização</a>
-          <a class="btn btn-ghost auth-user-link" href="ranking.html">Ver ranking global</a>
+          <a class="btn btn-primary auth-user-link" href="perfil.html">Abrir perfil</a>
+          <a class="btn btn-ghost auth-user-link" href="personalizacao.html">Personalizar perfil</a>
           <button id="logoutBtn" class="btn btn-ghost" type="button">Sair</button>
         </div>
 
@@ -101,6 +78,7 @@
 
       <div class="public-profile-grid">
         <article id="publicProfileCard" class="profile-preview public-profile-card" data-decoration="glow">
+          <div class="profile-preview-banner" aria-hidden="true"></div>
           <p class="profile-preview-label">Perfil</p>
           <div class="profile-preview-avatar-wrap">
             <img id="publicProfileAvatar" class="profile-preview-avatar" src="" alt="Foto do perfil" />
@@ -110,22 +88,10 @@
           <p id="publicProfileMeta" class="profile-preview-meta">Conta criada em: -</p>
 
           <div class="public-stats-grid">
-            <div class="public-stat-box">
-              <span>Seguidores</span>
-              <strong id="publicFollowersCount">0</strong>
-            </div>
-            <div class="public-stat-box">
-              <span>Seguindo</span>
-              <strong id="publicFollowingCount">0</strong>
-            </div>
-            <div class="public-stat-box">
-              <span>Amigos</span>
-              <strong id="publicFriendsCount">0</strong>
-            </div>
-            <div class="public-stat-box">
-              <span>Metas batidas</span>
-              <strong id="publicGoalsCount">0</strong>
-            </div>
+            <div class="public-stat-box"><span>Seguidores</span><strong id="publicFollowersCount">0</strong></div>
+            <div class="public-stat-box"><span>Seguindo</span><strong id="publicFollowingCount">0</strong></div>
+            <div class="public-stat-box"><span>Amigos</span><strong id="publicFriendsCount">0</strong></div>
+            <div class="public-stat-box"><span>Metas batidas</span><strong id="publicGoalsCount">0</strong></div>
           </div>
         </article>
 
@@ -147,10 +113,7 @@
         </div>
         <div id="publicChatMessages" class="chat-messages" aria-live="polite"></div>
         <form id="publicChatForm" class="chat-form" novalidate>
-          <label>
-            Mensagem
-            <textarea id="publicChatInput" placeholder="Escreva uma mensagem..." required></textarea>
-          </label>
+          <label>Mensagem<textarea id="publicChatInput" placeholder="Escreva uma mensagem..." required></textarea></label>
           <button class="btn btn-primary" type="submit">Enviar</button>
         </form>
         <p id="publicChatFeedback" class="feedback" aria-live="polite"></p>
@@ -158,48 +121,11 @@
     </section>
   </main>
 
-  <footer class="footer">
-    <p>Linithy Team — Todos os direitos reservados</p>
-    <p>
-      <a href="termos.html">Termos de Uso</a>
-      •
-      <a href="privacidade.html">Política de Privacidade</a>
-    </p>
-  </footer>
-
-  <nav class="app-bottom-nav" aria-label="Navegacao principal do app">
-    <a class="app-nav-item" href="index.html#inicio">
-      <span class="app-nav-icon">IN</span>
-      <span>Inicio</span>
-    </a>
-    <a class="app-nav-item" href="index.html#como-funciona">
-      <span class="app-nav-icon">CM</span>
-      <span>Como</span>
-    </a>
-    <a class="app-nav-item" href="index.html#psicologia">
-      <span class="app-nav-icon">PS</span>
-      <span>Psicologia</span>
-    </a>
-    <a class="app-nav-item" href="index.html#instrucoes">
-      <span class="app-nav-icon">IS</span>
-      <span>Instrucoes</span>
-    </a>
-    <a class="app-nav-item" href="index.html#simulador">
-      <span class="app-nav-icon">CF</span>
-      <span>Cofres</span>
-    </a>
-    <a class="app-nav-item" href="personalizacao.html">
-      <span class="app-nav-icon">PF</span>
-      <span>Perfil</span>
-    </a>
-    <a class="app-nav-item" href="ranking.html">
-      <span class="app-nav-icon">RK</span>
-      <span>Ranking</span>
-    </a>
-    <button id="bottomAuthToggle" class="app-nav-item app-nav-auth" type="button" aria-label="Abrir login" aria-controls="authPanel" aria-expanded="false">
-      <span class="app-nav-icon">LG</span>
-      <span id="bottomAuthLabel">Login</span>
-    </button>
+<nav class="app-bottom-nav" aria-label="Navegação principal do app">
+    <a class="app-nav-item" href="index.html" aria-label="Cofres"><span class="app-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 9.5V20h16V9.5M2 10l10-8 10 8"/><path d="M9 20v-6h6v6"/></svg></span><span class="app-nav-label">Cofres</span></a>
+    <a class="app-nav-item" href="chats.html" aria-label="Chats"><span class="app-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 5h14v10H9l-4 4V5z"/><path d="M8 9h8M8 12h5"/></svg></span><span class="app-nav-label">Chats</span></a>
+    <a class="app-nav-item" href="notificacoes.html" aria-label="Notificações"><span class="app-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 17H5l-2 2V9a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v4"/><path d="M18 8v1"/><path d="M18 11a4 4 0 0 1 4 4c0 2.2-1.8 4-4 4s-4-1.8-4-4 1.8-4 4-4z"/></svg></span><span class="app-nav-label">Notificações</span></a>
+    <a class="app-nav-item" href="perfil.html" aria-label="Perfil"><span class="app-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10z"/><path d="M3 21a9 9 0 0 1 18 0"/></svg></span><span class="app-nav-label">Perfil</span></a>
   </nav>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

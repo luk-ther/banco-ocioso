@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-label="Exemplo de abrir o app do banco">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b1220" />
+      <stop offset="100%" stop-color="#121a2d" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0ce0ff" />
+      <stop offset="100%" stop-color="#57ffbe" />
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="url(#bg)" />
+  <rect x="300" y="70" width="680" height="580" rx="42" fill="#070b14" stroke="#2f3b55" stroke-width="3" />
+  <rect x="360" y="130" width="560" height="64" rx="16" fill="#11192a" />
+  <text x="390" y="172" fill="#e8eefb" font-size="32" font-family="Sora, Arial, sans-serif" font-weight="700">App do Banco</text>
+  <rect x="360" y="228" width="560" height="110" rx="18" fill="#11192a" />
+  <text x="390" y="286" fill="#dbe6fb" font-size="28" font-family="Manrope, Arial, sans-serif">Conta principal</text>
+  <rect x="360" y="364" width="560" height="210" rx="18" fill="#0f1727" stroke="url(#accent)" stroke-width="3" />
+  <text x="390" y="430" fill="#0ce0ff" font-size="34" font-family="Sora, Arial, sans-serif" font-weight="700">Cofrinhos / Cofres</text>
+  <text x="390" y="478" fill="#c8d5ef" font-size="26" font-family="Manrope, Arial, sans-serif">Toque aqui para criar sua meta</text>
+  <circle cx="935" cy="380" r="16" fill="#0ce0ff" />
+  <path d="M950 360 L1020 318" stroke="#0ce0ff" stroke-width="6" stroke-linecap="round" />
+  <text x="1040" y="322" fill="#86f4ff" font-size="24" font-family="Manrope, Arial, sans-serif">Comece por esta area</text>
+</svg>

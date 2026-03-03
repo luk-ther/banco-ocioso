@@ -11,11 +11,13 @@ create table if not exists public.vaults (
 create table if not exists public.user_profiles (
   user_id uuid primary key references auth.users (id) on delete cascade,
   display_name text not null check (char_length(display_name) between 1 and 32),
-  theme_key text not null default 'neon' check (theme_key in ('neon', 'ocean', 'sunset', 'graphite')),
+  theme_key text not null default 'neon' check (theme_key in ('neon', 'ocean', 'sunset', 'graphite', 'aurora', 'midnight', 'ember', 'forest', 'royal', 'ruby', 'ice', 'sand', 'violet', 'carbon')),
   accent_color text not null default '#0ce0ff' check (accent_color ~ '^#[0-9A-Fa-f]{6}$'),
   name_font text not null default 'sora' check (name_font in ('sora', 'manrope', 'space', 'poppins')),
-  decoration text not null default 'glow' check (decoration in ('glow', 'ring', 'spark')),
+  decoration text not null default 'glow' check (decoration in ('glow', 'ring', 'spark', 'pulse', 'grid', 'stars', 'stripes', 'dots')),
+  bio text not null default '' check (char_length(bio) <= 180),
   avatar_url text not null default '',
+  banner_url text not null default '' check (char_length(banner_url) <= 560000),
   goals_completed integer not null default 0 check (goals_completed >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -60,6 +62,24 @@ create table if not exists public.social_messages (
 );
 
 alter table public.user_profiles add column if not exists avatar_url text not null default '';
+alter table public.user_profiles add column if not exists bio text not null default '';
+alter table public.user_profiles add column if not exists banner_url text not null default '';
+
+alter table public.user_profiles drop constraint if exists user_profiles_theme_key_check;
+alter table public.user_profiles add constraint user_profiles_theme_key_check
+check (theme_key in ('neon', 'ocean', 'sunset', 'graphite', 'aurora', 'midnight', 'ember', 'forest', 'royal', 'ruby', 'ice', 'sand', 'violet', 'carbon'));
+
+alter table public.user_profiles drop constraint if exists user_profiles_decoration_check;
+alter table public.user_profiles add constraint user_profiles_decoration_check
+check (decoration in ('glow', 'ring', 'spark', 'pulse', 'grid', 'stars', 'stripes', 'dots'));
+
+alter table public.user_profiles drop constraint if exists user_profiles_bio_check;
+alter table public.user_profiles add constraint user_profiles_bio_check
+check (char_length(bio) <= 180);
+
+alter table public.user_profiles drop constraint if exists user_profiles_banner_url_check;
+alter table public.user_profiles add constraint user_profiles_banner_url_check
+check (char_length(banner_url) <= 560000);
 
 alter table public.vaults enable row level security;
 alter table public.user_profiles enable row level security;

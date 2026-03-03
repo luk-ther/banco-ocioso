@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Banco Ocioso | Login</title>
+  <meta name="description" content="Entre na sua conta do Banco Ocioso para acessar cofres, chats, notificações e perfil." />
+  <link rel="icon" type="image/svg+xml" href="img/favicon.svg" />
+  <link rel="icon" type="image/png" href="img/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&family=Poppins:wght@400;600;700&family=Sora:wght@400;600;700;800&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-grid" aria-hidden="true"></div>
+
+  <main class="login-main">
+    <section class="login-shell">
+      <div class="login-brand">
+        <span class="brand-dot"></span>
+        <span>Banco Ocioso</span>
+      </div>
+
+      <div id="authGuest" class="auth-panel login-panel">
+        <h1 class="login-title">Acesse sua conta</h1>
+        <p class="login-copy">Faça login para entrar no app. Se for seu primeiro acesso, você verá um guia rápido em slides.</p>
+
+        <div class="auth-tabs">
+          <button id="tabLogin" class="btn btn-ghost auth-tab active" type="button">Entrar</button>
+          <button id="tabRegister" class="btn btn-ghost auth-tab" type="button">Criar conta</button>
+        </div>
+
+        <form id="loginForm" class="auth-form" novalidate>
+          <div class="field-grid auth-grid">
+            <label>
+              E-mail
+              <input id="loginEmail" type="email" placeholder="voce@email.com" required />
+            </label>
+            <label>
+              Senha
+              <input id="loginPassword" type="password" placeholder="Sua senha" required />
+            </label>
+          </div>
+          <button class="btn btn-primary" type="submit">Entrar agora</button>
+        </form>
+
+        <form id="registerForm" class="auth-form hidden" novalidate>
+          <div class="field-grid auth-grid">
+            <label>
+              E-mail
+              <input id="registerEmail" type="email" placeholder="voce@email.com" required />
+            </label>
+            <label>
+              Nome
+              <input id="registerName" type="text" placeholder="Seu nome" required />
+            </label>
+            <label>
+              Senha
+              <input id="registerPassword" type="password" placeholder="Mínimo 6 caracteres" required />
+            </label>
+          </div>
+          <button class="btn btn-primary" type="submit">Criar conta</button>
+        </form>
+
+        <p id="authFeedback" class="feedback" aria-live="polite"></p>
+
+        <p class="login-helpers">
+          Não recebeu e-mail de confirmação?
+          <a href="verificar-email.html">Abrir página de verificação</a>
+        </p>
+      </div>
+
+      <div id="authUser" class="auth-panel login-panel hidden">
+        <h2 class="login-title">Conta conectada</h2>
+        <p class="auth-welcome">Conectado como <strong id="authUserName"></strong>.</p>
+        <button id="logoutBtn" class="btn btn-ghost" type="button">Sair</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

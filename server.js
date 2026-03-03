@@ -70,7 +70,7 @@ app.post("/api/auth/register", async (req, res) => {
     const password = String(req.body?.password || "");
 
     if (!name || !email || password.length < 6) {
-      return res.status(400).json({ error: "Dados invalidos. Informe nome, e-mail e senha (minimo 6)." });
+      return res.status(400).json({ error: "Dados inválidos. Informe nome, e-mail e senha (mínimo 6)." });
     }
 
     const existing = findUserByEmailStmt.get(email);
@@ -186,7 +186,7 @@ app.put("/api/vaults/:vaultId", authRequired, (req, res) => {
 
     const existing = findVaultStmt.get(req.userId, vault.id);
     if (!existing) {
-      return res.status(404).json({ error: "Cofre nao encontrado." });
+      return res.status(404).json({ error: "Cofre não encontrado." });
     }
 
     updateVaultStmt.run(JSON.stringify(vault), vault.updatedAt, req.userId, vault.id);
@@ -201,7 +201,7 @@ app.put("/api/vaults/:vaultId", authRequired, (req, res) => {
 
 app.get("*", (req, res) => {
   if (req.path.startsWith("/api/")) {
-    return res.status(404).json({ error: "Rota nao encontrada." });
+    return res.status(404).json({ error: "Rota não encontrada." });
   }
   return res.sendFile(path.join(ROOT_DIR, "index.html"));
 });
@@ -236,7 +236,7 @@ function normalizeEmail(value) {
 
 function sanitizeVaultPayload(input) {
   if (!input || typeof input !== "object") {
-    throw new ValidationError("Dados de cofre invalidos.");
+    throw new ValidationError("Dados de cofre inválidos.");
   }
 
   const id = String(input.id || "").trim();

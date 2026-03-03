@@ -8,6 +8,61 @@
   return `${prefix}${withThousands},${decimalPart}`;
 };
 
+const ONBOARDING_STORAGE_KEY = "bo_onboarding_seen_v1";
+const ONBOARDING_PAGE = "onboarding.html";
+const LOGIN_PAGE = "login.html";
+const AUTH_REQUIRED_PAGES = new Set([
+  "index.html",
+  "chats.html",
+  "notificacoes.html",
+  "perfil.html",
+  "personalizacao.html",
+  "ranking.html",
+  "perfil-publico.html",
+]);
+const PROFILE_THEME_KEYS = [
+  "neon",
+  "ocean",
+  "sunset",
+  "graphite",
+  "aurora",
+  "midnight",
+  "ember",
+  "forest",
+  "royal",
+  "ruby",
+  "ice",
+  "sand",
+  "violet",
+  "carbon",
+];
+const PROFILE_DECORATION_KEYS = [
+  "glow",
+  "ring",
+  "spark",
+  "pulse",
+  "grid",
+  "stars",
+  "stripes",
+  "dots",
+];
+const PROFILE_THEME_LABELS = {
+  neon: "Neon",
+  ocean: "Ocean",
+  sunset: "Sunset",
+  graphite: "Graphite",
+  aurora: "Aurora",
+  midnight: "Midnight",
+  ember: "Ember",
+  forest: "Forest",
+  royal: "Royal",
+  ruby: "Ruby",
+  ice: "Ice",
+  sand: "Sand",
+  violet: "Violet",
+  carbon: "Carbon",
+};
+
 const revealNodes = document.querySelectorAll(".reveal");
 const rulesCheckbox = document.getElementById("confirmRules");
 const createVaultBtn = document.getElementById("createVaultBtn");
@@ -19,6 +74,12 @@ const vaultGroupActive = document.getElementById("vaultGroupActive");
 const vaultGroupAchievements = document.getElementById("vaultGroupAchievements");
 const toggleActiveVaultsBtn = document.getElementById("toggleActiveVaults");
 const toggleAchievementVaultsBtn = document.getElementById("toggleAchievementVaults");
+const vaultDashTotal = document.getElementById("vaultDashTotal");
+const vaultDashActive = document.getElementById("vaultDashActive");
+const vaultDashCompleted = document.getElementById("vaultDashCompleted");
+const vaultDashProgress = document.getElementById("vaultDashProgress");
+const vaultDashProgressBar = document.getElementById("vaultDashProgressBar");
+const vaultDashBest = document.getElementById("vaultDashBest");
 
 const authGuest = document.getElementById("authGuest");
 const authUser = document.getElementById("authUser");
@@ -31,25 +92,42 @@ const registerForm = document.getElementById("registerForm");
 const logoutBtn = document.getElementById("logoutBtn");
 const menuToggle = document.getElementById("menuToggle");
 const mainNav = document.getElementById("mainNav");
-const supportToggle = document.getElementById("supportToggle");
-const supportPanel = document.getElementById("supportPanel");
-const supportClose = document.getElementById("supportClose");
-const supportForm = document.getElementById("supportForm");
-const supportFrame = document.getElementById("supportFrame");
-const supportToast = document.getElementById("supportToast");
 const authToggle = document.getElementById("authToggle");
 const authPanel = document.getElementById("authPanel");
 const authClose = document.getElementById("authClose");
+const bottomNotifyBtn = document.getElementById("bottomNotifyBtn");
 const bottomAuthToggle = document.getElementById("bottomAuthToggle");
 const bottomAuthLabel = document.getElementById("bottomAuthLabel");
+const inboxPageRoot = document.getElementById("inboxPageRoot");
+const inboxThreadList = document.getElementById("inboxThreadList");
+const inboxFeedback = document.getElementById("inboxFeedback");
+const inboxActiveName = document.getElementById("inboxActiveName");
+const inboxActiveMeta = document.getElementById("inboxActiveMeta");
+const inboxMessages = document.getElementById("inboxMessages");
+const inboxMessageForm = document.getElementById("inboxMessageForm");
+const inboxMessageInput = document.getElementById("inboxMessageInput");
+const inboxComposerFeedback = document.getElementById("inboxComposerFeedback");
+const notificationsRoot = document.getElementById("notificationsRoot");
+const notificationsList = document.getElementById("notificationsList");
+const notificationsFeedback = document.getElementById("notificationsFeedback");
+const deviceNotifyStatus = document.getElementById("deviceNotifyStatus");
+const deviceNotifyEnableBtn = document.getElementById("deviceNotifyEnableBtn");
+const profileHubRoot = document.getElementById("profileHubRoot");
+const profileHubGuest = document.getElementById("profileHubGuest");
+const profileHubUser = document.getElementById("profileHubUser");
+const profileHubOpenLogin = document.getElementById("profileHubOpenLogin");
+const profileHubDisplayName = document.getElementById("profileHubDisplayName");
 const profileForm = document.getElementById("profileForm");
 const profileDisplayNameInput = document.getElementById("profileDisplayName");
 const profileThemeSelect = document.getElementById("profileTheme");
 const profileAccentColorInput = document.getElementById("profileAccentColor");
 const profileNameFontSelect = document.getElementById("profileNameFont");
 const profileDecorationSelect = document.getElementById("profileDecoration");
+const profileBioInput = document.getElementById("profileBio");
 const profileAvatarFileInput = document.getElementById("profileAvatarFile");
 const profileRemoveAvatarBtn = document.getElementById("profileRemoveAvatarBtn");
+const profileBannerFileInput = document.getElementById("profileBannerFile");
+const profileRemoveBannerBtn = document.getElementById("profileRemoveBannerBtn");
 const profileFeedback = document.getElementById("profileFeedback");
 const profilePreviewCard = document.getElementById("profilePreviewCard");
 const profilePreviewAvatar = document.getElementById("profilePreviewAvatar");
@@ -64,6 +142,7 @@ const rankingProfileAvatar = document.getElementById("rankingProfileAvatar");
 const rankingProfileName = document.getElementById("rankingProfileName");
 const rankingProfileTheme = document.getElementById("rankingProfileTheme");
 const rankingProfileGoals = document.getElementById("rankingProfileGoals");
+const rankingProfileBio = document.getElementById("rankingProfileBio");
 const rankingProfileCreated = document.getElementById("rankingProfileCreated");
 const rankingProfileUpdated = document.getElementById("rankingProfileUpdated");
 const publicProfileRoot = document.getElementById("publicProfileRoot");
@@ -96,6 +175,7 @@ let supabaseReady = false;
 let authToggleFixedWidth = "";
 let currentProfile = null;
 let profileAvatarDraftUrl = "";
+let profileBannerDraftUrl = "";
 let rankingCache = [];
 let publicProfileTargetId = "";
 let publicProfileTargetData = null;
@@ -106,6 +186,117 @@ let socialRelationState = {
   friendRequestIncomingId: "",
 };
 let publicChatPollTimer = null;
+let bottomNoticeTimer = null;
+let bottomNoticeNode = null;
+let inboxActiveUserId = "";
+let inboxThreadsCache = [];
+let inboxPollTimer = null;
+let notificationServiceWorkerRegistration = null;
+let knownIncomingMessageIds = new Set();
+let knownPendingRequestIds = new Set();
+let messageNotificationPrimed = false;
+let requestNotificationPrimed = false;
+let deviceNotificationPollTimer = null;
+
+const DEVICE_NOTIFY_PREF_KEY = "bo_device_notifications_enabled";
+const INTERACTION_TARGET_SELECTOR = [
+  "button",
+  ".btn",
+  ".app-nav-item",
+  ".auth-toggle",
+  ".menu-toggle",
+  ".vault-group-toggle",
+  ".inbox-thread",
+  ".ranking-item",
+  ".notification-item",
+  ".vault-card",
+  ".vault-stat-card",
+  ".feature-card",
+  ".pillar-card",
+  ".onboarding-dot",
+  ".auth-close",
+  ".ranking-profile-close",
+  "a[href]",
+  "input[type='checkbox']",
+  "input[type='radio']",
+].join(",");
+
+let feedbackMotionObserver = null;
+let interactionInsertObserver = null;
+
+function getCurrentPageName() {
+  return (window.location.pathname.split("/").pop() || "index.html").toLowerCase();
+}
+
+function hasSeenOnboarding() {
+  try {
+    return localStorage.getItem(ONBOARDING_STORAGE_KEY) === "1";
+  } catch (_error) {
+    return true;
+  }
+}
+
+function sanitizeNextPath(rawPath) {
+  const raw = String(rawPath || "").trim();
+  if (!raw) {
+    return "";
+  }
+
+  if (raw.includes("://") || raw.startsWith("//")) {
+    return "";
+  }
+
+  const normalized = raw.replace(/^\//, "");
+  if (!/^[a-z0-9._\-\/?#=&%]+$/i.test(normalized)) {
+    return "";
+  }
+
+  const page = normalized.split("?")[0].split("#")[0].toLowerCase();
+  if (!page.endsWith(".html")) {
+    return "";
+  }
+
+  return normalized;
+}
+
+function getNextDestinationFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  const rawNext = params.get("next");
+  const safeNext = sanitizeNextPath(rawNext);
+  if (!safeNext) {
+    return "index.html";
+  }
+
+  const nextPage = safeNext.split("?")[0].split("#")[0].toLowerCase();
+  if (nextPage === LOGIN_PAGE || nextPage === ONBOARDING_PAGE) {
+    return "index.html";
+  }
+  return safeNext;
+}
+
+function redirectToLoginPage() {
+  const currentPath = window.location.pathname.split("/").pop() || "index.html";
+  const fullNext = `${currentPath}${window.location.search || ""}${window.location.hash || ""}`;
+  const encoded = encodeURIComponent(fullNext);
+  window.location.replace(`${LOGIN_PAGE}?next=${encoded}`);
+}
+
+function redirectAfterAuth() {
+  if (!hasSeenOnboarding()) {
+    const destination = getNextDestinationFromQuery();
+    const encoded = encodeURIComponent(destination);
+    window.location.replace(`${ONBOARDING_PAGE}?next=${encoded}`);
+    return;
+  }
+  window.location.replace(getNextDestinationFromQuery());
+}
+
+function redirectToOnboardingWithCurrentDestination() {
+  const currentPath = window.location.pathname.split("/").pop() || "index.html";
+  const fullNext = `${currentPath}${window.location.search || ""}${window.location.hash || ""}`;
+  const encoded = encodeURIComponent(fullNext);
+  window.location.replace(`${ONBOARDING_PAGE}?next=${encoded}`);
+}
 
 const observer = new IntersectionObserver(
   (entries) => {
@@ -124,9 +315,11 @@ revealNodes.forEach((node, index) => {
 });
 setupShortcutScroll();
 setupMobileMenu();
-setupSupportWidget();
 setupAuthWidget();
 setupBottomNav();
+setupInboxUI();
+setupNotificationsUI();
+setupProfileHubUI();
 setupAuthUI();
 setupProfileUI();
 setupRankingInteractions();
@@ -134,12 +327,17 @@ setupPublicProfileUI();
 setupVaultHandlers();
 setupMoneyInputs();
 setupVaultGroupToggles();
+setupInteractionAnimations();
+void setupDeviceNotifications();
 init();
 
 async function init() {
+  const currentPage = getCurrentPageName();
   supabaseReady = initSupabase();
 
   if (!supabaseReady) {
+    stopDeviceNotificationPolling();
+    resetDeviceNotificationCaches();
     setAuthError("Configure SUPABASE_URL e SUPABASE_ANON_KEY em supabase-config.js.");
     disableAuthForms();
     resetProfileUI();
@@ -147,6 +345,9 @@ async function init() {
     renderVaults();
     renderRanking([]);
     resetPublicProfileUI("Faça login e execute o SQL social para usar perfis públicos completos.");
+    resetInboxUI("Configure o Supabase para usar chats.");
+    resetNotificationsUI("Configure o Supabase para usar notificações.");
+    updateProfileHubUI();
     return;
   }
 
@@ -156,6 +357,34 @@ async function init() {
   }
 
   currentUser = data?.session?.user || null;
+
+  if (currentPage === LOGIN_PAGE) {
+    if (currentUser) {
+      redirectAfterAuth();
+      return;
+    }
+    resetProfileUI();
+    updateAuthUI();
+    updateProfileHubUI();
+    return;
+  }
+
+  if (AUTH_REQUIRED_PAGES.has(currentPage)) {
+    if (!currentUser) {
+      redirectToLoginPage();
+      return;
+    }
+    if (!hasSeenOnboarding()) {
+      redirectToOnboardingWithCurrentDestination();
+      return;
+    }
+  }
+
+  if (!currentUser) {
+    resetDeviceNotificationCaches();
+    stopDeviceNotificationPolling();
+  }
+
   if (currentUser) {
     await loadVaultsFromDb();
     await loadUserProfile();
@@ -164,9 +393,41 @@ async function init() {
   }
   await loadGlobalRanking();
   await loadPublicProfilePageData();
+  await loadInboxPageData();
+  await loadNotificationsPageData();
+  if (currentUser) {
+    await pollDeviceNotificationsOnce();
+    startDeviceNotificationPolling();
+  }
+  updateProfileHubUI();
 
   supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+    const activePage = getCurrentPageName();
     currentUser = session?.user || null;
+
+    if (activePage === LOGIN_PAGE) {
+      if (currentUser) {
+        redirectAfterAuth();
+      }
+      return;
+    }
+
+    if (AUTH_REQUIRED_PAGES.has(activePage)) {
+      if (!currentUser) {
+        redirectToLoginPage();
+        return;
+      }
+      if (!hasSeenOnboarding()) {
+        redirectToOnboardingWithCurrentDestination();
+        return;
+      }
+    }
+
+    if (!currentUser) {
+      resetDeviceNotificationCaches();
+      stopDeviceNotificationPolling();
+    }
+
     if (currentUser) {
       await loadVaultsFromDb();
       await loadUserProfile();
@@ -177,12 +438,20 @@ async function init() {
     }
     await loadGlobalRanking();
     await loadPublicProfilePageData();
+    await loadInboxPageData();
+    await loadNotificationsPageData();
+    if (currentUser) {
+      await pollDeviceNotificationsOnce();
+      startDeviceNotificationPolling();
+    }
     updateAuthUI();
+    updateProfileHubUI();
     updateVaultAccessState();
     renderVaults();
   });
 
   updateAuthUI();
+  updateProfileHubUI();
   updateVaultAccessState();
   renderVaults();
 }
@@ -227,7 +496,7 @@ function setupAuthUI() {
     event.preventDefault();
 
     if (!supabaseReady) {
-      setAuthError("Supabase nao configurado.");
+      setAuthError("Supabase não configurado.");
       return;
     }
 
@@ -254,6 +523,9 @@ function setupAuthUI() {
 
       setAuthMessage("Login realizado com sucesso.");
       loginForm.reset();
+      if (getCurrentPageName() === LOGIN_PAGE) {
+        redirectAfterAuth();
+      }
     } catch (error) {
       setAuthError(getFriendlyAuthError(error));
     }
@@ -263,7 +535,7 @@ function setupAuthUI() {
     event.preventDefault();
 
     if (!supabaseReady) {
-      setAuthError("Supabase nao configurado.");
+      setAuthError("Supabase não configurado.");
       return;
     }
 
@@ -279,7 +551,7 @@ function setupAuthUI() {
     }
 
     if (password.length < 6) {
-      setAuthError("A senha precisa ter no minimo 6 caracteres.");
+      setAuthError("A senha precisa ter no mínimo 6 caracteres.");
       return;
     }
 
@@ -310,11 +582,14 @@ function setupAuthUI() {
       }
 
       if (!data?.user) {
-        setAuthError("Nao foi possivel criar sua conta agora. Tente novamente em instantes.");
+        setAuthError("Não foi possível criar sua conta agora. Tente novamente em instantes.");
         return;
       }
       if (data.session) {
         setAuthMessage("Conta criada e login efetuado.");
+        if (getCurrentPageName() === LOGIN_PAGE) {
+          redirectAfterAuth();
+        }
       } else {
         setAuthMessage("Conta criada. Verifique seu e-mail e confirme a conta antes de entrar.");
       }
@@ -337,8 +612,10 @@ function setupAuthUI() {
     }
 
     setAuthMessage("Sessão encerrada.");
-    feedback.textContent = "";
-    feedback.classList.remove("error");
+    if (feedback) {
+      feedback.textContent = "";
+      feedback.classList.remove("error");
+    }
   });
 }
 
@@ -353,6 +630,7 @@ function setupProfileUI() {
     profileAccentColorInput,
     profileNameFontSelect,
     profileDecorationSelect,
+    profileBioInput,
   ].filter(Boolean);
 
   previewFields.forEach((field) => {
@@ -401,6 +679,33 @@ function setupProfileUI() {
     });
   }
 
+  if (profileBannerFileInput) {
+    profileBannerFileInput.addEventListener("change", async () => {
+      if (!currentUser) {
+        setProfileError("Entre na sua conta para anexar banner.");
+        profileBannerFileInput.value = "";
+        return;
+      }
+
+      const file = profileBannerFileInput.files?.[0];
+      if (!file) {
+        return;
+      }
+
+      try {
+        profileBannerDraftUrl = await buildBannerDataUrl(file);
+        const draft = collectProfileDraft(currentUser, currentProfile || getDefaultProfile(currentUser));
+        applyProfileAppearance(draft);
+        updateProfilePreview(draft);
+        setProfileMessage("Banner carregado. Clique em \"Salvar perfil\" para publicar.");
+      } catch (error) {
+        setProfileError(String(error?.message || "Não foi possível processar o banner."));
+      } finally {
+        profileBannerFileInput.value = "";
+      }
+    });
+  }
+
   if (profileRemoveAvatarBtn) {
     profileRemoveAvatarBtn.addEventListener("click", () => {
       if (!currentUser) {
@@ -412,6 +717,20 @@ function setupProfileUI() {
       applyProfileAppearance(draft);
       updateProfilePreview(draft);
       setProfileMessage("Foto removida do rascunho. Salve o perfil para confirmar.");
+    });
+  }
+
+  if (profileRemoveBannerBtn) {
+    profileRemoveBannerBtn.addEventListener("click", () => {
+      if (!currentUser) {
+        setProfileError("Entre na sua conta para editar o banner.");
+        return;
+      }
+      profileBannerDraftUrl = "";
+      const draft = collectProfileDraft(currentUser, currentProfile || getDefaultProfile(currentUser));
+      applyProfileAppearance(draft);
+      updateProfilePreview(draft);
+      setProfileMessage("Banner removido do rascunho. Salve o perfil para confirmar.");
     });
   }
 
@@ -436,7 +755,9 @@ function setupProfileUI() {
       accent_color: draft.accent_color,
       name_font: draft.name_font,
       decoration: draft.decoration,
+      bio: draft.bio,
       avatar_url: draft.avatar_url,
+      banner_url: draft.banner_url,
       goals_completed: countCompletedGoals(),
       updated_at: new Date().toISOString(),
     };
@@ -454,6 +775,7 @@ function setupProfileUI() {
 
     currentProfile = normalizeProfile(data, currentUser);
     profileAvatarDraftUrl = currentProfile.avatar_url;
+    profileBannerDraftUrl = currentProfile.banner_url;
     hydrateProfileForm(currentProfile);
     applyProfileAppearance(currentProfile);
     updateProfilePreview(currentProfile);
@@ -467,7 +789,7 @@ function setProfileFormDisabled(disabled) {
   if (!profileForm) {
     return;
   }
-  profileForm.querySelectorAll("input, select, button").forEach((el) => {
+  profileForm.querySelectorAll("input, select, textarea, button").forEach((el) => {
     el.disabled = disabled;
   });
 }
@@ -524,7 +846,9 @@ function getDefaultProfile(user) {
     accent_color: "#0ce0ff",
     name_font: "sora",
     decoration: "glow",
+    bio: "Blindagem financeira personalizada.",
     avatar_url: "",
+    banner_url: "",
     goals_completed: 0,
     created_at: typeof user?.created_at === "string" ? user.created_at : new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -534,18 +858,20 @@ function getDefaultProfile(user) {
 function normalizeProfile(input, user = currentUser) {
   const safe = input && typeof input === "object" ? input : {};
   const fallback = getDefaultProfile(user);
-  const theme = ["neon", "ocean", "sunset", "graphite"].includes(String(safe.theme_key || "").toLowerCase())
+  const theme = PROFILE_THEME_KEYS.includes(String(safe.theme_key || "").toLowerCase())
     ? String(safe.theme_key).toLowerCase()
     : fallback.theme_key;
   const nameFont = ["sora", "manrope", "space", "poppins"].includes(String(safe.name_font || "").toLowerCase())
     ? String(safe.name_font).toLowerCase()
     : fallback.name_font;
-  const decoration = ["glow", "ring", "spark"].includes(String(safe.decoration || "").toLowerCase())
+  const decoration = PROFILE_DECORATION_KEYS.includes(String(safe.decoration || "").toLowerCase())
     ? String(safe.decoration).toLowerCase()
     : fallback.decoration;
   const accent = isValidHexColor(safe.accent_color) ? String(safe.accent_color).toLowerCase() : fallback.accent_color;
   const displayName = String(safe.display_name || fallback.display_name).trim().slice(0, 32) || fallback.display_name;
+  const bio = sanitizeProfileBio(safe.bio ?? fallback.bio ?? "");
   const avatarUrl = sanitizeAvatarUrl(safe.avatar_url || fallback.avatar_url || "");
+  const bannerUrl = sanitizeBannerUrl(safe.banner_url || fallback.banner_url || "");
   const goalsCompleted = Number.isFinite(Number(safe.goals_completed)) && Number(safe.goals_completed) >= 0
     ? Math.floor(Number(safe.goals_completed))
     : 0;
@@ -557,7 +883,9 @@ function normalizeProfile(input, user = currentUser) {
     accent_color: accent,
     name_font: nameFont,
     decoration,
+    bio,
     avatar_url: avatarUrl,
+    banner_url: bannerUrl,
     goals_completed: goalsCompleted,
     created_at: typeof safe.created_at === "string" ? safe.created_at : fallback.created_at,
     updated_at: typeof safe.updated_at === "string" ? safe.updated_at : new Date().toISOString(),
@@ -580,6 +908,30 @@ function sanitizeAvatarUrl(value) {
     return raw.length <= 1000 ? raw : "";
   }
   return "";
+}
+
+function sanitizeBannerUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "";
+  }
+  if (raw.startsWith("data:image/")) {
+    return raw.length <= 560000 ? raw : "";
+  }
+  if (/^https?:\/\//i.test(raw)) {
+    return raw.length <= 1400 ? raw : "";
+  }
+  return "";
+}
+
+function sanitizeProfileBio(value) {
+  const fallback = "Blindagem financeira personalizada.";
+  const normalized = String(value || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, 180);
+  return normalized || fallback;
 }
 
 function getAvatarInitials(name) {
@@ -674,6 +1026,99 @@ async function buildAvatarDataUrl(file) {
   return output;
 }
 
+async function buildBannerDataUrl(file) {
+  const maxFileBytes = 10 * 1024 * 1024;
+  if (!file || !String(file.type || "").startsWith("image/")) {
+    throw new Error("Selecione uma imagem valida (PNG, JPG ou WEBP).");
+  }
+  if (file.size > maxFileBytes) {
+    throw new Error("Banner muito grande. O limite e 10 MB.");
+  }
+
+  const rawDataUrl = await readFileAsDataUrl(file);
+  const img = await loadImage(rawDataUrl);
+  const sourceWidth = img.naturalWidth || img.width;
+  const sourceHeight = img.naturalHeight || img.height;
+  const targetWidth = 1280;
+  const targetHeight = 720;
+  const sourceRatio = sourceWidth / sourceHeight;
+  const targetRatio = targetWidth / targetHeight;
+
+  let cropWidth = sourceWidth;
+  let cropHeight = sourceHeight;
+  if (sourceRatio > targetRatio) {
+    cropWidth = Math.max(1, Math.floor(sourceHeight * targetRatio));
+  } else {
+    cropHeight = Math.max(1, Math.floor(sourceWidth / targetRatio));
+  }
+
+  const sourceX = Math.max(0, Math.floor((sourceWidth - cropWidth) / 2));
+  const sourceY = Math.max(0, Math.floor((sourceHeight - cropHeight) / 2));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Não foi possível processar o banner.");
+  }
+
+  ctx.drawImage(img, sourceX, sourceY, cropWidth, cropHeight, 0, 0, targetWidth, targetHeight);
+
+  let quality = 0.9;
+  let output = canvas.toDataURL("image/jpeg", quality);
+  while (output.length > 520000 && quality > 0.48) {
+    quality -= 0.07;
+    output = canvas.toDataURL("image/jpeg", quality);
+  }
+
+  if (output.length > 560000) {
+    throw new Error("O banner ficou muito pesado. Use uma imagem menor.");
+  }
+
+  return output;
+}
+
+function applyProfileCardBanner(card, bannerUrl) {
+  if (!card) {
+    return;
+  }
+  const bannerLayer = card.querySelector(".profile-preview-banner");
+  if (!(bannerLayer instanceof HTMLElement)) {
+    return;
+  }
+
+  const safeBannerUrl = sanitizeBannerUrl(bannerUrl);
+  if (!safeBannerUrl) {
+    bannerLayer.style.backgroundImage = "";
+    card.classList.remove("has-banner");
+    return;
+  }
+
+  bannerLayer.style.backgroundImage = `url("${safeBannerUrl}")`;
+  card.classList.add("has-banner");
+}
+
+function applyRankingCardBanner(sheet, bannerUrl) {
+  if (!sheet) {
+    return;
+  }
+  const bannerLayer = sheet.querySelector(".ranking-profile-banner");
+  if (!(bannerLayer instanceof HTMLElement)) {
+    return;
+  }
+
+  const safeBannerUrl = sanitizeBannerUrl(bannerUrl);
+  if (!safeBannerUrl) {
+    bannerLayer.style.backgroundImage = "";
+    sheet.classList.remove("has-banner");
+    return;
+  }
+
+  bannerLayer.style.backgroundImage = `url("${safeBannerUrl}")`;
+  sheet.classList.add("has-banner");
+}
+
 function collectProfileDraft(user, fallbackProfile) {
   const fallback = normalizeProfile(fallbackProfile, user);
   const displayName = String(profileDisplayNameInput?.value || fallback.display_name).trim().slice(0, 32) || fallback.display_name;
@@ -681,7 +1126,9 @@ function collectProfileDraft(user, fallbackProfile) {
   const accent = String(profileAccentColorInput?.value || fallback.accent_color).toLowerCase();
   const nameFont = String(profileNameFontSelect?.value || fallback.name_font).toLowerCase();
   const decoration = String(profileDecorationSelect?.value || fallback.decoration).toLowerCase();
+  const bio = sanitizeProfileBio(profileBioInput?.value || fallback.bio || "");
   const avatarUrl = sanitizeAvatarUrl(profileAvatarDraftUrl || fallback.avatar_url || "");
+  const bannerUrl = sanitizeBannerUrl(profileBannerDraftUrl || fallback.banner_url || "");
 
   return normalizeProfile(
     {
@@ -691,7 +1138,9 @@ function collectProfileDraft(user, fallbackProfile) {
       accent_color: accent,
       name_font: nameFont,
       decoration,
+      bio,
       avatar_url: avatarUrl,
+      banner_url: bannerUrl,
     },
     user
   );
@@ -706,9 +1155,16 @@ function hydrateProfileForm(profile) {
   profileAccentColorInput.value = profile.accent_color;
   profileNameFontSelect.value = profile.name_font;
   profileDecorationSelect.value = profile.decoration;
+  if (profileBioInput) {
+    profileBioInput.value = profile.bio;
+  }
   profileAvatarDraftUrl = profile.avatar_url || "";
+  profileBannerDraftUrl = profile.banner_url || "";
   if (profileAvatarFileInput) {
     profileAvatarFileInput.value = "";
+  }
+  if (profileBannerFileInput) {
+    profileBannerFileInput.value = "";
   }
 }
 
@@ -718,9 +1174,11 @@ function updateProfilePreview(profile) {
   }
   const safe = normalizeProfile(profile, currentUser);
   profilePreviewName.textContent = safe.display_name;
-  profilePreviewTagline.textContent = "Blindagem financeira personalizada";
+  profilePreviewTagline.textContent = safe.bio;
   profilePreviewMeta.textContent = `Metas batidas: ${safe.goals_completed}`;
   profilePreviewCard.dataset.decoration = safe.decoration;
+  profilePreviewCard.style.setProperty("--user-accent", safe.accent_color);
+  applyProfileCardBanner(profilePreviewCard, safe.banner_url);
   if (profilePreviewAvatar) {
     profilePreviewAvatar.src = getAvatarSrc(safe);
     profilePreviewAvatar.alt = `Foto de ${safe.display_name}`;
@@ -761,6 +1219,7 @@ function applyProfileAppearance(profile) {
     }
     if (profilePreviewCard) {
       profilePreviewCard.dataset.decoration = "glow";
+      applyProfileCardBanner(profilePreviewCard, "");
     }
     return;
   }
@@ -824,7 +1283,9 @@ async function loadUserProfile() {
       accent_color: defaultProfile.accent_color,
       name_font: defaultProfile.name_font,
       decoration: defaultProfile.decoration,
+      bio: defaultProfile.bio,
       avatar_url: defaultProfile.avatar_url,
+      banner_url: defaultProfile.banner_url,
       goals_completed: countCompletedGoals(),
       updated_at: new Date().toISOString(),
     };
@@ -879,7 +1340,9 @@ async function syncGoalsCompletedToProfile(force = false) {
     accent_color: currentProfile.accent_color,
     name_font: currentProfile.name_font,
     decoration: currentProfile.decoration,
+    bio: currentProfile.bio,
     avatar_url: currentProfile.avatar_url,
+    banner_url: currentProfile.banner_url,
     goals_completed: currentProfile.goals_completed,
     updated_at: currentProfile.updated_at,
   };
@@ -894,17 +1357,8 @@ async function syncGoalsCompletedToProfile(force = false) {
 }
 
 function getThemeLabel(themeKey) {
-  switch (themeKey) {
-    case "ocean":
-      return "Ocean";
-    case "sunset":
-      return "Sunset";
-    case "graphite":
-      return "Graphite";
-    case "neon":
-    default:
-      return "Neon";
-  }
+  const key = String(themeKey || "").toLowerCase();
+  return PROFILE_THEME_LABELS[key] || PROFILE_THEME_LABELS.neon;
 }
 
 async function loadGlobalRanking() {
@@ -917,7 +1371,7 @@ async function loadGlobalRanking() {
 
   const { data, error } = await supabaseClient
     .from("user_profiles")
-    .select("user_id, display_name, goals_completed, theme_key, name_font, accent_color, decoration, avatar_url, created_at, updated_at")
+    .select("user_id, display_name, goals_completed, theme_key, name_font, accent_color, decoration, bio, avatar_url, banner_url, created_at, updated_at")
     .order("goals_completed", { ascending: false })
     .order("updated_at", { ascending: true })
     .limit(50);
@@ -1047,12 +1501,16 @@ function openRankingProfile(profile) {
   rankingProfileName.style.fontFamily = fontFamily;
   rankingProfileTheme.textContent = `Tema: ${getThemeLabel(safe.theme_key)} • Decoração: ${safe.decoration}`;
   rankingProfileGoals.textContent = `Metas batidas: ${goals}`;
+  if (rankingProfileBio) {
+    rankingProfileBio.textContent = safe.bio;
+  }
   if (rankingProfileCreated) {
     rankingProfileCreated.textContent = `Conta criada em: ${created}`;
   }
   rankingProfileUpdated.textContent = `Atualizado em: ${updated}`;
   rankingProfileSheet.style.setProperty("--ranking-accent", safe.accent_color);
   rankingProfileSheet.dataset.decoration = safe.decoration;
+  applyRankingCardBanner(rankingProfileSheet, safe.banner_url);
   rankingProfileSheet.classList.remove("hidden");
 }
 
@@ -1062,6 +1520,7 @@ function closeRankingProfile() {
   }
   rankingProfileSheet.style.removeProperty("--ranking-accent");
   rankingProfileSheet.removeAttribute("data-decoration");
+  applyRankingCardBanner(rankingProfileSheet, "");
   rankingProfileSheet.classList.add("hidden");
 }
 
@@ -1221,6 +1680,11 @@ function resetPublicProfileUI(message = "") {
   }
   if (publicProfileAvatar) {
     publicProfileAvatar.src = buildAvatarPlaceholder("BO", "#0ce0ff");
+  }
+  if (publicProfileCard) {
+    publicProfileCard.style.removeProperty("--user-accent");
+    publicProfileCard.removeAttribute("data-decoration");
+    applyProfileCardBanner(publicProfileCard, "");
   }
   if (publicFollowersCount) {
     publicFollowersCount.textContent = "0";
@@ -1535,8 +1999,9 @@ function renderPublicProfileCard(profile, stats) {
   publicProfileName.textContent = safe.display_name;
   publicProfileName.style.fontFamily = getNameFontFamily(safe.name_font);
   publicProfileName.style.color = safe.accent_color;
-  publicProfileTagline.textContent = `Tema ${getThemeLabel(safe.theme_key)} • ${safe.decoration}`;
+  publicProfileTagline.textContent = safe.bio;
   publicProfileMeta.textContent = `Conta criada em: ${createdAt}`;
+  applyProfileCardBanner(publicProfileCard, safe.banner_url);
 
   if (publicProfileAvatar) {
     publicProfileAvatar.src = getAvatarSrc(safe);
@@ -1729,10 +2194,69 @@ function setupVaultHandlers() {
   });
 }
 
+function updateVaultDashboard() {
+  if (
+    !vaultDashTotal ||
+    !vaultDashActive ||
+    !vaultDashCompleted ||
+    !vaultDashProgress ||
+    !vaultDashProgressBar ||
+    !vaultDashBest
+  ) {
+    return;
+  }
+
+  if (!supabaseReady) {
+    vaultDashTotal.textContent = "-";
+    vaultDashActive.textContent = "-";
+    vaultDashCompleted.textContent = "-";
+    vaultDashProgress.textContent = "-";
+    vaultDashProgressBar.style.width = "0%";
+    vaultDashBest.textContent = "Melhor cofre: configure o Supabase.";
+    return;
+  }
+
+  if (!currentUser) {
+    vaultDashTotal.textContent = "0";
+    vaultDashActive.textContent = "0";
+    vaultDashCompleted.textContent = "0";
+    vaultDashProgress.textContent = "0%";
+    vaultDashProgressBar.style.width = "0%";
+    vaultDashBest.textContent = "Melhor cofre: entre na sua conta.";
+    return;
+  }
+
+  const total = vaults.length;
+  const active = vaults.filter((vault) => vault.hiddenBalance < vault.goal).length;
+  const completed = total - active;
+  const averageProgress = total > 0
+    ? Math.round(vaults.reduce((sum, vault) => sum + getProgress(vault.hiddenBalance, vault.goal), 0) / total)
+    : 0;
+
+  let bestLabel = "Melhor cofre: crie sua primeira meta.";
+  if (total > 0) {
+    const bestVault = vaults
+      .map((vault) => ({ vault, progress: getProgress(vault.hiddenBalance, vault.goal) }))
+      .sort((a, b) => b.progress - a.progress)[0];
+    if (bestVault?.vault) {
+      bestLabel = `Melhor cofre: ${bestVault.vault.name} (${bestVault.progress}%).`;
+    }
+  }
+
+  vaultDashTotal.textContent = String(total);
+  vaultDashActive.textContent = String(active);
+  vaultDashCompleted.textContent = String(completed);
+  vaultDashProgress.textContent = `${averageProgress}%`;
+  vaultDashProgressBar.style.width = `${averageProgress}%`;
+  vaultDashBest.textContent = bestLabel;
+}
+
 function renderVaults() {
   if (!activeVaultList || !achievementVaultList) {
     return;
   }
+
+  updateVaultDashboard();
 
   if (!supabaseReady) {
     activeVaultList.innerHTML = "<article class=\"vault-card\"><p class=\"vault-meta\">Configure o Supabase para ativar login e cofres.</p></article>";
@@ -2011,7 +2535,7 @@ function attachVaultEvents() {
 }
 
 function updateVaultAccessState() {
-  if (!createVaultBtn || !vaultForm || !rulesCheckbox) {
+  if (!createVaultBtn || !vaultForm || !rulesCheckbox || !feedback) {
     return;
   }
 
@@ -2378,8 +2902,12 @@ function handleGoalTransition(vault, previousBalance) {
   const now = Date.now();
   vault.goalReachedAt = new Date(now).toISOString();
   vault.celebrateUntil = new Date(now + 6000).toISOString();
-  feedback.classList.remove("error");
-  feedback.textContent = `Meta batida no cofre "${vault.name}". Valor liberado para visualização.`;
+  if (feedback) {
+    feedback.classList.remove("error");
+    feedback.textContent = `Meta batida no cofre "${vault.name}". Valor liberado para visualização.`;
+  } else {
+    showBottomNotice(`Meta batida no cofre "${vault.name}".`);
+  }
   setTimeout(() => {
     renderVaults();
   }, 6100);
@@ -2387,6 +2915,13 @@ function handleGoalTransition(vault, previousBalance) {
 
 function setupBottomNav() {
   updateBottomNavActiveState();
+
+  if (bottomNotifyBtn) {
+    bottomNotifyBtn.addEventListener("click", (event) => {
+      event.preventDefault();
+      showBottomNotice("Sem notificações novas por enquanto.");
+    });
+  }
 
   if (bottomAuthToggle) {
     bottomAuthToggle.addEventListener("click", (event) => {
@@ -2435,6 +2970,909 @@ function updateBottomNavActiveState() {
 
     item.classList.toggle("is-active", isActive);
   });
+}
+
+function showBottomNotice(message) {
+  if (!message) {
+    return;
+  }
+
+  if (!bottomNoticeNode) {
+    bottomNoticeNode = document.getElementById("bottomNotice");
+  }
+  if (!bottomNoticeNode) {
+    bottomNoticeNode = document.createElement("div");
+    bottomNoticeNode.id = "bottomNotice";
+    bottomNoticeNode.className = "bottom-notice";
+    bottomNoticeNode.setAttribute("role", "status");
+    bottomNoticeNode.setAttribute("aria-live", "polite");
+    document.body.appendChild(bottomNoticeNode);
+  }
+
+  bottomNoticeNode.textContent = message;
+  bottomNoticeNode.classList.add("is-visible");
+  if (bottomNoticeTimer) {
+    clearTimeout(bottomNoticeTimer);
+  }
+  bottomNoticeTimer = window.setTimeout(() => {
+    if (bottomNoticeNode) {
+      bottomNoticeNode.classList.remove("is-visible");
+    }
+    bottomNoticeTimer = null;
+  }, 2600);
+}
+
+function canUseDeviceNotifications() {
+  if (typeof window === "undefined" || !("Notification" in window)) {
+    return false;
+  }
+  if (window.isSecureContext) {
+    return true;
+  }
+  return window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+}
+
+function getDeviceNotificationPreference() {
+  try {
+    const raw = localStorage.getItem(DEVICE_NOTIFY_PREF_KEY);
+    if (!raw) {
+      return true;
+    }
+    return raw === "1";
+  } catch (_error) {
+    return true;
+  }
+}
+
+function setDeviceNotificationPreference(enabled) {
+  try {
+    localStorage.setItem(DEVICE_NOTIFY_PREF_KEY, enabled ? "1" : "0");
+  } catch (_error) {
+    // Sem bloqueio se localStorage não estiver disponível.
+  }
+}
+
+async function setupDeviceNotifications() {
+  if (!canUseDeviceNotifications()) {
+    syncDeviceNotificationStatusUI();
+    return;
+  }
+
+  if ("serviceWorker" in navigator) {
+    try {
+      notificationServiceWorkerRegistration = await navigator.serviceWorker.register("./sw.js");
+    } catch (_error) {
+      notificationServiceWorkerRegistration = null;
+    }
+  }
+
+  syncDeviceNotificationStatusUI();
+}
+
+function syncDeviceNotificationStatusUI() {
+  if (!deviceNotifyStatus || !deviceNotifyEnableBtn) {
+    return;
+  }
+
+  if (!canUseDeviceNotifications()) {
+    deviceNotifyStatus.textContent = "Seu dispositivo/navegador não suporta notificações de sistema.";
+    deviceNotifyEnableBtn.textContent = "Indisponível";
+    deviceNotifyEnableBtn.disabled = true;
+    return;
+  }
+
+  const prefEnabled = getDeviceNotificationPreference();
+  const permission = Notification.permission;
+
+  if (!prefEnabled) {
+    deviceNotifyStatus.textContent = "Notificações do dispositivo estão desativadas neste navegador.";
+    deviceNotifyEnableBtn.textContent = "Ativar";
+    deviceNotifyEnableBtn.disabled = false;
+    return;
+  }
+
+  if (permission === "granted") {
+    deviceNotifyStatus.textContent = "Ativas no dispositivo. Você receberá alertas de mensagens e pedidos de amizade.";
+    deviceNotifyEnableBtn.textContent = "Ativado";
+    deviceNotifyEnableBtn.disabled = true;
+    return;
+  }
+
+  if (permission === "denied") {
+    deviceNotifyStatus.textContent = "Permissão negada no navegador. Libere manualmente nas configurações do site.";
+    deviceNotifyEnableBtn.textContent = "Bloqueado";
+    deviceNotifyEnableBtn.disabled = true;
+    return;
+  }
+
+  deviceNotifyStatus.textContent = "Toque em ativar para permitir notificações do dispositivo.";
+  deviceNotifyEnableBtn.textContent = "Ativar";
+  deviceNotifyEnableBtn.disabled = false;
+}
+
+async function requestDeviceNotificationPermission() {
+  if (!canUseDeviceNotifications()) {
+    showBottomNotice("Notificações do dispositivo não são suportadas neste navegador.");
+    syncDeviceNotificationStatusUI();
+    return false;
+  }
+
+  setDeviceNotificationPreference(true);
+
+  if (Notification.permission === "granted") {
+    syncDeviceNotificationStatusUI();
+    return true;
+  }
+
+  if (Notification.permission === "denied") {
+    syncDeviceNotificationStatusUI();
+    return false;
+  }
+
+  const result = await Notification.requestPermission();
+  syncDeviceNotificationStatusUI();
+  return result === "granted";
+}
+
+async function showDeviceNotification(title, options = {}) {
+  if (!canUseDeviceNotifications()) {
+    return;
+  }
+  if (!getDeviceNotificationPreference() || Notification.permission !== "granted") {
+    return;
+  }
+
+  const safeTitle = String(title || "").trim() || "Banco Ocioso";
+  const payload = {
+    badge: "img/favicon.png",
+    icon: "img/favicon.png",
+    ...options,
+  };
+
+  if (notificationServiceWorkerRegistration && typeof notificationServiceWorkerRegistration.showNotification === "function") {
+    try {
+      await notificationServiceWorkerRegistration.showNotification(safeTitle, payload);
+      return;
+    } catch (_error) {
+      // fallback abaixo
+    }
+  }
+
+  try {
+    // Fallback para contexto sem SW ativo.
+    const instance = new Notification(safeTitle, payload);
+    instance.onclick = () => {
+      const target = String(payload?.data?.url || "index.html");
+      window.focus();
+      window.location.href = target;
+      instance.close();
+    };
+  } catch (_error) {
+    // Ignora falhas silenciosamente.
+  }
+}
+
+function resetDeviceNotificationCaches() {
+  knownIncomingMessageIds = new Set();
+  knownPendingRequestIds = new Set();
+  messageNotificationPrimed = false;
+  requestNotificationPrimed = false;
+}
+
+function startDeviceNotificationPolling() {
+  stopDeviceNotificationPolling();
+
+  if (!supabaseReady || !currentUser) {
+    return;
+  }
+
+  deviceNotificationPollTimer = window.setInterval(() => {
+    void pollDeviceNotificationsOnce();
+  }, 12000);
+}
+
+function stopDeviceNotificationPolling() {
+  if (deviceNotificationPollTimer) {
+    clearInterval(deviceNotificationPollTimer);
+    deviceNotificationPollTimer = null;
+  }
+}
+
+async function pollDeviceNotificationsOnce() {
+  if (!supabaseReady || !currentUser) {
+    return;
+  }
+
+  const friendIds = await loadFriendIdsForCurrentUser();
+  let profileMap = new Map();
+
+  if (friendIds.length > 0) {
+    const [profileRes, messageRes] = await Promise.all([
+      supabaseClient
+        .from("user_profiles")
+        .select("*")
+        .in("user_id", friendIds),
+      supabaseClient
+        .from("social_messages")
+        .select("id, sender_id, receiver_id, content, created_at")
+        .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
+        .order("created_at", { ascending: false })
+        .limit(400),
+    ]);
+
+    profileMap = new Map(
+      (Array.isArray(profileRes?.data) ? profileRes.data : []).map((row) => {
+        const safe = normalizeProfile(row, null);
+        return [safe.user_id, safe];
+      })
+    );
+
+    if (!messageRes?.error) {
+      await trackAndNotifyIncomingMessages(
+        Array.isArray(messageRes.data) ? messageRes.data : [],
+        profileMap,
+        friendIds
+      );
+    }
+  }
+
+  const { data: requestRows, error: requestError } = await supabaseClient
+    .from("social_friend_requests")
+    .select("id, requester_id, addressee_id, status, created_at, updated_at")
+    .eq("addressee_id", currentUser.id)
+    .eq("status", "pending")
+    .order("updated_at", { ascending: false })
+    .limit(100);
+
+  if (requestError) {
+    return;
+  }
+
+  const safeRequests = Array.isArray(requestRows) ? requestRows : [];
+  if (safeRequests.length === 0) {
+    await trackAndNotifyFriendRequests([], new Map());
+    return;
+  }
+
+  const requesterIds = Array.from(new Set(safeRequests.map((item) => String(item.requester_id || "")).filter(Boolean)));
+  const { data: requesterProfiles } = await supabaseClient
+    .from("user_profiles")
+    .select("*")
+    .in("user_id", requesterIds);
+
+  const requestProfileMap = new Map(
+    (Array.isArray(requesterProfiles) ? requesterProfiles : []).map((row) => {
+      const safe = normalizeProfile(row, null);
+      return [safe.user_id, safe];
+    })
+  );
+
+  await trackAndNotifyFriendRequests(safeRequests, requestProfileMap);
+}
+
+async function trackAndNotifyIncomingMessages(messageRows, profileMap, friendIds) {
+  if (!currentUser || !Array.isArray(messageRows)) {
+    return;
+  }
+
+  const incoming = messageRows
+    .filter((row) =>
+      row &&
+      row.receiver_id === currentUser.id &&
+      friendIds.includes(String(row.sender_id))
+    )
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+  if (!messageNotificationPrimed) {
+    incoming.forEach((row) => {
+      if (row?.id) {
+        knownIncomingMessageIds.add(String(row.id));
+      }
+    });
+    messageNotificationPrimed = true;
+    return;
+  }
+
+  for (const row of incoming) {
+    const msgId = String(row?.id || "");
+    if (!msgId || knownIncomingMessageIds.has(msgId)) {
+      continue;
+    }
+    knownIncomingMessageIds.add(msgId);
+
+    const senderId = String(row.sender_id || "");
+    const sender = profileMap.get(senderId);
+    const senderName = sender?.display_name || "Amigo";
+    const isActiveConversationOpen =
+      getCurrentPageName() === "chats.html" &&
+      document.visibilityState === "visible" &&
+      inboxActiveUserId === senderId;
+
+    if (isActiveConversationOpen) {
+      continue;
+    }
+
+    const messageText = String(row.content || "").trim();
+    await showDeviceNotification(`Nova mensagem de ${senderName}`, {
+      body: messageText.length > 120 ? `${messageText.slice(0, 117)}...` : messageText,
+      tag: `msg-${msgId}`,
+      data: { url: "chats.html" },
+    });
+  }
+
+  if (knownIncomingMessageIds.size > 2500) {
+    const ids = Array.from(knownIncomingMessageIds).slice(-1200);
+    knownIncomingMessageIds = new Set(ids);
+  }
+}
+
+async function trackAndNotifyFriendRequests(requestRows, profileMap) {
+  if (!currentUser || !Array.isArray(requestRows)) {
+    return;
+  }
+
+  const currentIds = new Set(requestRows.map((row) => String(row.id || "")).filter(Boolean));
+  if (!requestNotificationPrimed) {
+    currentIds.forEach((id) => knownPendingRequestIds.add(id));
+    requestNotificationPrimed = true;
+    return;
+  }
+
+  for (const row of requestRows) {
+    const id = String(row?.id || "");
+    if (!id || knownPendingRequestIds.has(id)) {
+      continue;
+    }
+    knownPendingRequestIds.add(id);
+    const profile = profileMap.get(String(row.requester_id || ""));
+    const name = profile?.display_name || "Usuário";
+    await showDeviceNotification("Novo pedido de amizade", {
+      body: `${name} enviou um pedido para você.`,
+      tag: `friend-request-${id}`,
+      data: { url: "notificacoes.html" },
+    });
+  }
+
+  // Remove ids já resolvidos para não crescer sem limite.
+  knownPendingRequestIds.forEach((id) => {
+    if (!currentIds.has(id)) {
+      knownPendingRequestIds.delete(id);
+    }
+  });
+}
+
+function setupProfileHubUI() {
+  if (!profileHubRoot || !profileHubOpenLogin) {
+    return;
+  }
+
+  profileHubOpenLogin.addEventListener("click", () => {
+    if (!authPanel || !authToggle) {
+      return;
+    }
+    setAuthPanelState(true);
+  });
+}
+
+function updateProfileHubUI() {
+  if (!profileHubRoot || !profileHubGuest || !profileHubUser) {
+    return;
+  }
+
+  if (currentUser) {
+    profileHubGuest.classList.add("hidden");
+    profileHubUser.classList.remove("hidden");
+    if (profileHubDisplayName) {
+      const displayName = currentProfile?.display_name || getUserDisplayName(currentUser);
+      profileHubDisplayName.textContent = `Conta de ${displayName}`;
+    }
+  } else {
+    profileHubGuest.classList.remove("hidden");
+    profileHubUser.classList.add("hidden");
+    if (profileHubDisplayName) {
+      profileHubDisplayName.textContent = "Conta";
+    }
+  }
+}
+
+function setupInboxUI() {
+  if (!inboxPageRoot) {
+    return;
+  }
+
+  if (inboxThreadList) {
+    inboxThreadList.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+      const item = target.closest(".inbox-thread[data-user-id]");
+      if (!item) {
+        return;
+      }
+      const userId = String(item.getAttribute("data-user-id") || "");
+      if (!userId) {
+        return;
+      }
+      void selectInboxThread(userId);
+    });
+  }
+
+  if (inboxMessageForm && inboxMessageInput) {
+    inboxMessageForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      if (!supabaseReady || !currentUser || !inboxActiveUserId) {
+        setInboxComposerFeedback("Abra um chat válido para enviar mensagens.", true);
+        return;
+      }
+
+      const content = String(inboxMessageInput.value || "").trim();
+      if (!content) {
+        return;
+      }
+      if (content.length > 1200) {
+        setInboxComposerFeedback("Mensagem muito longa (máximo 1200 caracteres).", true);
+        return;
+      }
+
+      const { error } = await supabaseClient
+        .from("social_messages")
+        .insert({
+          sender_id: currentUser.id,
+          receiver_id: inboxActiveUserId,
+          content,
+          created_at: new Date().toISOString(),
+        });
+
+      if (error) {
+        setInboxComposerFeedback(getFriendlySocialError(error, "Não foi possível enviar a mensagem."), true);
+        return;
+      }
+
+      inboxMessageInput.value = "";
+      setInboxComposerFeedback("Mensagem enviada.");
+      await loadInboxMessages(inboxActiveUserId);
+      await loadInboxPageData();
+    });
+  }
+}
+
+function resetInboxUI(message = "") {
+  stopInboxPolling();
+  inboxThreadsCache = [];
+  inboxActiveUserId = "";
+
+  if (inboxThreadList) {
+    inboxThreadList.innerHTML = "";
+  }
+  if (inboxMessages) {
+    inboxMessages.innerHTML = "";
+  }
+  if (inboxActiveName) {
+    inboxActiveName.textContent = "Selecione um chat";
+  }
+  if (inboxActiveMeta) {
+    inboxActiveMeta.textContent = "A conversa aparece aqui.";
+  }
+  if (inboxMessageForm) {
+    inboxMessageForm.classList.add("hidden");
+  }
+  if (inboxComposerFeedback) {
+    inboxComposerFeedback.textContent = "";
+    inboxComposerFeedback.classList.remove("error");
+  }
+  setInboxFeedback(message || "");
+}
+
+function setInboxFeedback(message, isError = false) {
+  if (!inboxFeedback) {
+    return;
+  }
+  inboxFeedback.textContent = message;
+  inboxFeedback.classList.toggle("error", Boolean(isError));
+}
+
+function setInboxComposerFeedback(message, isError = false) {
+  if (!inboxComposerFeedback) {
+    return;
+  }
+  inboxComposerFeedback.textContent = message;
+  inboxComposerFeedback.classList.toggle("error", Boolean(isError));
+}
+
+async function loadInboxPageData() {
+  if (!inboxPageRoot) {
+    return;
+  }
+
+  if (!supabaseReady) {
+    resetInboxUI("Supabase não configurado.");
+    return;
+  }
+
+  if (!currentUser) {
+    resetInboxUI("Entre na sua conta para acessar os chats.");
+    return;
+  }
+
+  const friendIds = await loadFriendIdsForCurrentUser();
+  if (friendIds.length === 0) {
+    resetInboxUI("Você ainda não possui amizades aceitas.");
+    return;
+  }
+
+  const { data: profileRows, error: profileError } = await supabaseClient
+    .from("user_profiles")
+    .select("*")
+    .in("user_id", friendIds);
+
+  if (profileError) {
+    resetInboxUI(getFriendlySocialError(profileError, "Não foi possível carregar os perfis dos chats."));
+    return;
+  }
+
+  const profileMap = new Map(
+    (Array.isArray(profileRows) ? profileRows : []).map((row) => {
+      const safe = normalizeProfile(row, null);
+      return [safe.user_id, safe];
+    })
+  );
+
+  const { data: messageRows, error: messageError } = await supabaseClient
+    .from("social_messages")
+    .select("id, sender_id, receiver_id, content, created_at")
+    .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
+    .order("created_at", { ascending: false })
+    .limit(600);
+
+  if (messageError) {
+    resetInboxUI(getFriendlySocialError(messageError, "Não foi possível carregar os chats."));
+    return;
+  }
+
+  await trackAndNotifyIncomingMessages(
+    Array.isArray(messageRows) ? messageRows : [],
+    profileMap,
+    friendIds
+  );
+
+  const lastByFriend = new Map();
+  (Array.isArray(messageRows) ? messageRows : []).forEach((msg) => {
+    const friendId = msg.sender_id === currentUser.id ? msg.receiver_id : msg.sender_id;
+    if (!friendIds.includes(friendId)) {
+      return;
+    }
+    if (!lastByFriend.has(friendId)) {
+      lastByFriend.set(friendId, msg);
+    }
+  });
+
+  inboxThreadsCache = friendIds.map((friendId) => {
+    const profile = profileMap.get(friendId) || normalizeProfile({ user_id: friendId, display_name: "Usuário" }, null);
+    return {
+      friendId,
+      profile,
+      lastMessage: lastByFriend.get(friendId) || null,
+    };
+  }).sort((a, b) => {
+    const timeA = a.lastMessage?.created_at ? new Date(a.lastMessage.created_at).getTime() : 0;
+    const timeB = b.lastMessage?.created_at ? new Date(b.lastMessage.created_at).getTime() : 0;
+    return timeB - timeA;
+  });
+
+  if (!inboxActiveUserId || !friendIds.includes(inboxActiveUserId)) {
+    inboxActiveUserId = inboxThreadsCache[0]?.friendId || "";
+  }
+
+  renderInboxThreads();
+
+  if (!inboxActiveUserId) {
+    resetInboxUI("Sem conversas disponíveis.");
+    return;
+  }
+
+  await loadInboxMessages(inboxActiveUserId);
+  startInboxPolling();
+}
+
+function renderInboxThreads() {
+  if (!inboxThreadList) {
+    return;
+  }
+
+  if (inboxThreadsCache.length === 0) {
+    inboxThreadList.innerHTML = "<article class=\"inbox-thread-empty\">Sem conversas ainda.</article>";
+    return;
+  }
+
+  inboxThreadList.innerHTML = inboxThreadsCache.map((item) => {
+    const safe = item.profile;
+    const last = item.lastMessage;
+    const preview = last ? escapeHTML(String(last.content || "").slice(0, 70)) : "Sem mensagens ainda";
+    const when = last?.created_at ? new Date(last.created_at).toLocaleDateString("pt-BR") : "";
+    const isActive = inboxActiveUserId === item.friendId;
+    return `
+      <button class="inbox-thread ${isActive ? "active" : ""}" type="button" data-user-id="${item.friendId}" aria-label="Abrir chat com ${escapeHTML(safe.display_name)}">
+        <img class="inbox-thread-avatar" src="${escapeAttr(getAvatarSrc(safe))}" alt="Foto de ${escapeHTML(safe.display_name)}" />
+        <span class="inbox-thread-body">
+          <strong class="inbox-thread-name">${escapeHTML(safe.display_name)}</strong>
+          <span class="inbox-thread-preview">${preview}</span>
+        </span>
+        <span class="inbox-thread-time">${when}</span>
+      </button>
+    `;
+  }).join("");
+}
+
+async function selectInboxThread(friendId) {
+  inboxActiveUserId = friendId;
+  renderInboxThreads();
+  await loadInboxMessages(friendId);
+}
+
+async function loadInboxMessages(friendId) {
+  if (!inboxMessages || !currentUser || !friendId) {
+    return;
+  }
+
+  const thread = inboxThreadsCache.find((item) => item.friendId === friendId);
+  if (inboxActiveName) {
+    inboxActiveName.textContent = thread?.profile?.display_name || "Conversa";
+  }
+  if (inboxActiveMeta) {
+    inboxActiveMeta.textContent = "Chat entre amigos";
+  }
+  if (inboxMessageForm) {
+    inboxMessageForm.classList.remove("hidden");
+  }
+
+  const filter = `and(sender_id.eq.${currentUser.id},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${currentUser.id})`;
+  const { data, error } = await supabaseClient
+    .from("social_messages")
+    .select("id, sender_id, receiver_id, content, created_at")
+    .or(filter)
+    .order("created_at", { ascending: true })
+    .limit(300);
+
+  if (error) {
+    setInboxComposerFeedback(getFriendlySocialError(error, "Não foi possível carregar as mensagens."), true);
+    return;
+  }
+
+  if (!Array.isArray(data) || data.length === 0) {
+    inboxMessages.innerHTML = "<article class=\"chat-bubble\"><span class=\"chat-meta\">Sem mensagens</span><p class=\"chat-content\">Comece a conversa com seu amigo.</p></article>";
+    return;
+  }
+
+  inboxMessages.innerHTML = data.map((msg) => {
+    const mine = msg.sender_id === currentUser.id;
+    const when = msg.created_at ? new Date(msg.created_at).toLocaleString("pt-BR") : "-";
+    return `
+      <article class="chat-bubble ${mine ? "mine" : ""}">
+        <span class="chat-meta">${mine ? "Você" : "Amigo"} • ${when}</span>
+        <p class="chat-content">${escapeHTML(String(msg.content || ""))}</p>
+      </article>
+    `;
+  }).join("");
+
+  inboxMessages.scrollTop = inboxMessages.scrollHeight;
+}
+
+function startInboxPolling() {
+  if (!inboxPageRoot || !currentUser) {
+    return;
+  }
+  stopInboxPolling();
+  inboxPollTimer = window.setInterval(() => {
+    if (!document.body.contains(inboxPageRoot) || !inboxActiveUserId) {
+      return;
+    }
+    void loadInboxMessages(inboxActiveUserId);
+    void loadInboxPageData();
+  }, 8000);
+}
+
+function stopInboxPolling() {
+  if (inboxPollTimer) {
+    clearInterval(inboxPollTimer);
+    inboxPollTimer = null;
+  }
+}
+
+async function loadFriendIdsForCurrentUser() {
+  if (!currentUser) {
+    return [];
+  }
+
+  const [aRes, bRes] = await Promise.all([
+    supabaseClient
+      .from("social_friendships")
+      .select("user_b")
+      .eq("user_a", currentUser.id),
+    supabaseClient
+      .from("social_friendships")
+      .select("user_a")
+      .eq("user_b", currentUser.id),
+  ]);
+
+  const ids = new Set();
+  (Array.isArray(aRes?.data) ? aRes.data : []).forEach((row) => {
+    if (row?.user_b) {
+      ids.add(String(row.user_b));
+    }
+  });
+  (Array.isArray(bRes?.data) ? bRes.data : []).forEach((row) => {
+    if (row?.user_a) {
+      ids.add(String(row.user_a));
+    }
+  });
+
+  return Array.from(ids);
+}
+
+function setupNotificationsUI() {
+  if (deviceNotifyEnableBtn) {
+    deviceNotifyEnableBtn.addEventListener("click", async () => {
+      const granted = await requestDeviceNotificationPermission();
+      if (granted) {
+        showBottomNotice("Notificações do dispositivo ativadas.");
+      } else if (canUseDeviceNotifications() && Notification.permission !== "granted") {
+        showBottomNotice("Permissão de notificação não concedida.");
+      }
+    });
+  }
+
+  syncDeviceNotificationStatusUI();
+
+  if (!notificationsRoot || !notificationsList) {
+    return;
+  }
+
+  notificationsList.addEventListener("click", async (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+    const actionButton = target.closest("button[data-request-id][data-action]");
+    if (!actionButton) {
+      return;
+    }
+    const requestId = String(actionButton.getAttribute("data-request-id") || "");
+    const requesterId = String(actionButton.getAttribute("data-requester-id") || "");
+    const action = String(actionButton.getAttribute("data-action") || "");
+    if (!requestId || !action) {
+      return;
+    }
+    await handleNotificationAction(requestId, requesterId, action);
+  });
+}
+
+function resetNotificationsUI(message = "") {
+  if (notificationsList) {
+    notificationsList.innerHTML = "";
+  }
+  setNotificationsFeedback(message, false);
+  syncDeviceNotificationStatusUI();
+}
+
+function setNotificationsFeedback(message, isError = false) {
+  if (!notificationsFeedback) {
+    return;
+  }
+  notificationsFeedback.textContent = message;
+  notificationsFeedback.classList.toggle("error", Boolean(isError));
+}
+
+async function loadNotificationsPageData() {
+  if (!notificationsRoot || !notificationsList) {
+    return;
+  }
+
+  if (!supabaseReady) {
+    resetNotificationsUI("Supabase não configurado.");
+    return;
+  }
+
+  if (!currentUser) {
+    resetNotificationsUI("Entre na sua conta para ver notificações.");
+    return;
+  }
+
+  const { data: requests, error } = await supabaseClient
+    .from("social_friend_requests")
+    .select("id, requester_id, addressee_id, status, created_at, updated_at")
+    .eq("addressee_id", currentUser.id)
+    .eq("status", "pending")
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    resetNotificationsUI(getFriendlySocialError(error, "Não foi possível carregar notificações."));
+    setNotificationsFeedback(getFriendlySocialError(error, "Não foi possível carregar notificações."), true);
+    return;
+  }
+
+  const safeRequests = Array.isArray(requests) ? requests : [];
+  if (safeRequests.length === 0) {
+    await trackAndNotifyFriendRequests([], new Map());
+    notificationsList.innerHTML = "<article class=\"notification-item\"><p class=\"vault-meta\">Sem notificações novas no momento.</p></article>";
+    setNotificationsFeedback("");
+    return;
+  }
+
+  const requesterIds = Array.from(new Set(safeRequests.map((item) => String(item.requester_id)).filter(Boolean)));
+  const { data: profilesData } = await supabaseClient
+    .from("user_profiles")
+    .select("*")
+    .in("user_id", requesterIds);
+
+  const profileMap = new Map(
+    (Array.isArray(profilesData) ? profilesData : []).map((row) => {
+      const safe = normalizeProfile(row, null);
+      return [safe.user_id, safe];
+    })
+  );
+
+  await trackAndNotifyFriendRequests(safeRequests, profileMap);
+
+  notificationsList.innerHTML = safeRequests.map((item) => {
+    const profile = profileMap.get(String(item.requester_id)) || normalizeProfile({ user_id: item.requester_id, display_name: "Usuário" }, null);
+    const when = item.created_at ? new Date(item.created_at).toLocaleString("pt-BR") : "-";
+    return `
+      <article class="notification-item">
+        <img class="notification-avatar" src="${escapeAttr(getAvatarSrc(profile))}" alt="Foto de ${escapeHTML(profile.display_name)}" />
+        <div class="notification-content">
+          <strong>${escapeHTML(profile.display_name)}</strong>
+          <p class="vault-meta">Enviou pedido de amizade • ${when}</p>
+          <div class="notification-actions">
+            <button class="btn btn-primary" type="button" data-action="accept" data-request-id="${item.id}" data-requester-id="${item.requester_id}">Aceitar</button>
+            <button class="btn btn-ghost" type="button" data-action="reject" data-request-id="${item.id}" data-requester-id="${item.requester_id}">Recusar</button>
+          </div>
+        </div>
+      </article>
+    `;
+  }).join("");
+
+  setNotificationsFeedback("");
+}
+
+async function handleNotificationAction(requestId, requesterId, action) {
+  if (!currentUser) {
+    setNotificationsFeedback("Entre na sua conta para responder pedidos.", true);
+    return;
+  }
+
+  const nextStatus = action === "accept" ? "accepted" : "rejected";
+  const { error: updateError } = await supabaseClient
+    .from("social_friend_requests")
+    .update({ status: nextStatus, updated_at: new Date().toISOString() })
+    .eq("id", requestId)
+    .eq("addressee_id", currentUser.id)
+    .eq("status", "pending");
+
+  if (updateError) {
+    setNotificationsFeedback(getFriendlySocialError(updateError, "Não foi possível atualizar a solicitação."), true);
+    return;
+  }
+
+  if (nextStatus === "accepted") {
+    const [userA, userB] = canonicalPairIds(currentUser.id, requesterId);
+    const { error: friendshipError } = await supabaseClient
+      .from("social_friendships")
+      .upsert(
+        { user_a: userA, user_b: userB, created_at: new Date().toISOString() },
+        { onConflict: "user_a,user_b" }
+      );
+
+    if (friendshipError) {
+      setNotificationsFeedback(getFriendlySocialError(friendshipError, "Amizade não foi criada."), true);
+      return;
+    }
+  }
+
+  setNotificationsFeedback(nextStatus === "accepted" ? "Pedido aceito com sucesso." : "Pedido recusado.");
+  await loadNotificationsPageData();
+  await loadInboxPageData();
 }
 
 function setupShortcutScroll() {
@@ -2498,80 +3936,6 @@ function animateVaultCards() {
   });
 }
 
-function setupSupportWidget() {
-  if (!supportToggle || !supportPanel || !supportClose) {
-    return;
-  }
-
-  let supportSubmitPending = false;
-  let supportToastTimer = null;
-
-  supportToggle.addEventListener("click", () => {
-    const isOpen = supportPanel.classList.toggle("is-open");
-    supportPanel.setAttribute("aria-hidden", String(!isOpen));
-    supportToggle.setAttribute("aria-expanded", String(isOpen));
-    supportToggle.classList.toggle("is-active", isOpen);
-  });
-
-  supportClose.addEventListener("click", () => {
-    closeSupportWidget();
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      closeSupportWidget();
-    }
-  });
-
-  document.addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof Node)) {
-      return;
-    }
-    if (!supportPanel.classList.contains("is-open")) {
-      return;
-    }
-    if (!supportPanel.contains(target) && !supportToggle.contains(target)) {
-      closeSupportWidget();
-    }
-  });
-
-  if (supportForm && supportFrame && supportToast) {
-    supportForm.addEventListener("submit", () => {
-      supportSubmitPending = true;
-    });
-
-    supportFrame.addEventListener("load", () => {
-      if (!supportSubmitPending) {
-        return;
-      }
-
-      supportSubmitPending = false;
-      supportForm.reset();
-      closeSupportWidget();
-      supportToast.classList.remove("hidden");
-
-      if (supportToastTimer) {
-        clearTimeout(supportToastTimer);
-      }
-
-      supportToastTimer = setTimeout(() => {
-        supportToast.classList.add("hidden");
-      }, 4200);
-    });
-  }
-}
-
-function closeSupportWidget() {
-  if (!supportToggle || !supportPanel) {
-    return;
-  }
-  supportPanel.classList.remove("is-open");
-  supportPanel.setAttribute("aria-hidden", "true");
-  supportToggle.setAttribute("aria-expanded", "false");
-  supportToggle.classList.remove("is-active");
-}
-
 function setupAuthWidget() {
   if (!authToggle || !authPanel || !authClose) {
     return;
@@ -2628,7 +3992,7 @@ function setAuthPanelState(isOpen) {
 }
 
 function updateAuthUI() {
-  if (!authGuest || !authUser || !authUserName || !authToggle) {
+  if (!authGuest || !authUser || !authUserName) {
     return;
   }
 
@@ -2639,11 +4003,13 @@ function updateAuthUI() {
     authGuest.classList.add("hidden");
     authUser.classList.remove("hidden");
     authUserName.textContent = displayName;
-    authToggle.textContent = displayName;
-    authToggle.title = displayName;
-    authToggle.setAttribute("aria-label", `Abrir conta de ${displayName}`);
+    if (authToggle) {
+      authToggle.textContent = displayName;
+      authToggle.title = displayName;
+      authToggle.setAttribute("aria-label", `Abrir conta de ${displayName}`);
+    }
     if (bottomAuthLabel) {
-      bottomAuthLabel.textContent = "Conta";
+      bottomAuthLabel.textContent = "Perfil";
     }
     if (bottomAuthToggle) {
       bottomAuthToggle.title = displayName;
@@ -2653,17 +4019,21 @@ function updateAuthUI() {
     authGuest.classList.remove("hidden");
     authUser.classList.add("hidden");
     authUserName.textContent = "";
-    authToggle.textContent = "Login";
-    authToggle.title = "Login";
-    authToggle.setAttribute("aria-label", "Abrir login");
+    if (authToggle) {
+      authToggle.textContent = "Login";
+      authToggle.title = "Login";
+      authToggle.setAttribute("aria-label", "Abrir login");
+    }
     if (bottomAuthLabel) {
-      bottomAuthLabel.textContent = "Login";
+      bottomAuthLabel.textContent = "Perfil";
     }
     if (bottomAuthToggle) {
       bottomAuthToggle.title = "Login";
       bottomAuthToggle.setAttribute("aria-label", "Abrir login");
     }
   }
+
+  syncDeviceNotificationStatusUI();
 }
 
 function getUserDisplayName(user) {
@@ -2770,18 +4140,22 @@ function getFriendlyAuthError(error) {
   }
 
   if (rawStatus >= 500) {
-    return "Falha temporaria no servidor de autenticacao. Tente novamente em alguns minutos.";
+    return "Falha temporária no servidor de autenticação. Tente novamente em alguns minutos.";
   }
 
   if (!rawMessage || rawMessage === "{}" || rawMessage === "[object object]") {
-    return "Nao foi possivel concluir a autenticacao agora. Aguarde alguns minutos e tente novamente.";
+    return "Não foi possível concluir a autenticação agora. Aguarde alguns minutos e tente novamente.";
   }
 
   return rawMessage;
 }
 function showError(message) {
-  feedback.textContent = message;
-  feedback.classList.add("error");
+  if (feedback) {
+    feedback.textContent = message;
+    feedback.classList.add("error");
+    return;
+  }
+  showBottomNotice(message);
 }
 
 function escapeHTML(text) {
@@ -2835,3 +4209,262 @@ function applyVaultGroupState(sectionNode, buttonNode, collapsed) {
   buttonNode.textContent = collapsed ? "Expandir" : "Minimizar";
 }
 
+function setupInteractionAnimations() {
+  if (!document.body) {
+    return;
+  }
+
+  document.body.classList.add("ui-boot");
+  window.setTimeout(() => {
+    document.body?.classList.add("ui-boot-ready");
+  }, 30);
+
+  setupInteractionPointerFeedback();
+  setupFeedbackMotionObserver();
+  setupDynamicInsertMotion();
+}
+
+function setupInteractionPointerFeedback() {
+  const releasePressedState = () => {
+    document.querySelectorAll(".interaction-press, .interaction-key-press").forEach((node) => {
+      node.classList.remove("interaction-press", "interaction-key-press");
+    });
+  };
+
+  document.addEventListener("pointerdown", (event) => {
+    const target = resolveInteractionTarget(event.target);
+    if (!target) {
+      return;
+    }
+
+    target.classList.add("interaction-press");
+    createInteractionRipple(target, event);
+  }, { passive: true });
+
+  document.addEventListener("pointerup", releasePressedState, { passive: true });
+  document.addEventListener("pointercancel", releasePressedState, { passive: true });
+  document.addEventListener("mouseleave", releasePressedState, { passive: true });
+  window.addEventListener("blur", releasePressedState);
+
+  document.addEventListener("keydown", (event) => {
+    if (event.repeat) {
+      return;
+    }
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    const target = resolveInteractionTarget(event.target);
+    if (!target) {
+      return;
+    }
+
+    target.classList.add("interaction-key-press");
+    createInteractionRipple(target, null);
+  });
+
+  document.addEventListener("keyup", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    const target = resolveInteractionTarget(event.target);
+    if (!target) {
+      return;
+    }
+    target.classList.remove("interaction-key-press");
+  });
+}
+
+function resolveInteractionTarget(startNode) {
+  if (!(startNode instanceof Element)) {
+    return null;
+  }
+
+  const target = startNode.closest(INTERACTION_TARGET_SELECTOR);
+  if (!(target instanceof HTMLElement)) {
+    return null;
+  }
+
+  if (target.hasAttribute("disabled") || target.getAttribute("aria-disabled") === "true") {
+    return null;
+  }
+
+  if (target instanceof HTMLInputElement) {
+    const type = String(target.type || "").toLowerCase();
+    if (type === "text" || type === "email" || type === "password" || type === "number" || type === "search") {
+      return null;
+    }
+  }
+
+  return target;
+}
+
+function createInteractionRipple(target, event) {
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  const computed = window.getComputedStyle(target);
+  if (computed.display === "inline") {
+    return;
+  }
+
+  const rect = target.getBoundingClientRect();
+  if (rect.width < 14 || rect.height < 14) {
+    return;
+  }
+
+  target.classList.add("has-interaction-layer");
+  const ripple = document.createElement("span");
+  ripple.className = "ui-ripple";
+
+  const diameter = Math.max(rect.width, rect.height) * 1.35;
+  let x = rect.width / 2;
+  let y = rect.height / 2;
+
+  if (event && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+    x = event.clientX - rect.left;
+    y = event.clientY - rect.top;
+  }
+
+  ripple.style.width = `${diameter}px`;
+  ripple.style.height = `${diameter}px`;
+  ripple.style.left = `${x - (diameter / 2)}px`;
+  ripple.style.top = `${y - (diameter / 2)}px`;
+  target.appendChild(ripple);
+
+  ripple.addEventListener("animationend", () => {
+    ripple.remove();
+  }, { once: true });
+}
+
+function setupFeedbackMotionObserver() {
+  if (feedbackMotionObserver) {
+    feedbackMotionObserver.disconnect();
+    feedbackMotionObserver = null;
+  }
+
+  const feedbackNodes = document.querySelectorAll(".feedback");
+  feedbackNodes.forEach((node) => {
+    if (node instanceof HTMLElement && String(node.textContent || "").trim()) {
+      animateFeedbackNode(node);
+    }
+  });
+
+  feedbackMotionObserver = new MutationObserver((mutationList) => {
+    mutationList.forEach((mutation) => {
+      if (mutation.type === "characterData") {
+        const parent = mutation.target?.parentElement?.closest?.(".feedback");
+        if (parent instanceof HTMLElement) {
+          animateFeedbackNode(parent);
+        }
+        return;
+      }
+
+      if (mutation.type === "attributes") {
+        const target = mutation.target;
+        if (target instanceof HTMLElement && target.matches(".feedback")) {
+          animateFeedbackNode(target);
+        }
+        return;
+      }
+
+      if (mutation.type === "childList") {
+        mutation.addedNodes.forEach((node) => {
+          if (!(node instanceof Element)) {
+            return;
+          }
+          if (node.matches(".feedback")) {
+            animateFeedbackNode(node);
+          }
+          node.querySelectorAll?.(".feedback").forEach((child) => {
+            if (child instanceof HTMLElement) {
+              animateFeedbackNode(child);
+            }
+          });
+        });
+      }
+    });
+  });
+
+  feedbackMotionObserver.observe(document.body, {
+    subtree: true,
+    childList: true,
+    characterData: true,
+    attributes: true,
+    attributeFilter: ["class"],
+  });
+}
+
+function animateFeedbackNode(node) {
+  if (!(node instanceof HTMLElement)) {
+    return;
+  }
+
+  const message = String(node.textContent || "").trim();
+  if (!message) {
+    return;
+  }
+
+  node.classList.remove("feedback-pop-ok", "feedback-pop-error");
+  void node.offsetWidth;
+  node.classList.add(node.classList.contains("error") ? "feedback-pop-error" : "feedback-pop-ok");
+}
+
+function setupDynamicInsertMotion() {
+  if (interactionInsertObserver) {
+    interactionInsertObserver.disconnect();
+    interactionInsertObserver = null;
+  }
+
+  const animatedSelector = [
+    ".vault-card",
+    ".ranking-item",
+    ".notification-item",
+    ".inbox-thread",
+    ".chat-bubble",
+    ".achievement-card",
+    ".panel",
+    ".vault-group",
+    ".vault-stat-card",
+  ].join(",");
+
+  interactionInsertObserver = new MutationObserver((mutationList) => {
+    mutationList.forEach((mutation) => {
+      if (mutation.type !== "childList" || mutation.addedNodes.length === 0) {
+        return;
+      }
+
+      mutation.addedNodes.forEach((node) => {
+        if (!(node instanceof Element)) {
+          return;
+        }
+
+        if (node.matches(animatedSelector)) {
+          queueEnterAnimation(node);
+        }
+
+        node.querySelectorAll?.(animatedSelector).forEach((child) => {
+          if (child instanceof HTMLElement) {
+            queueEnterAnimation(child);
+          }
+        });
+      });
+    });
+  });
+
+  interactionInsertObserver.observe(document.body, {
+    subtree: true,
+    childList: true,
+  });
+}
+
+function queueEnterAnimation(node) {
+  if (!(node instanceof HTMLElement) || node.classList.contains("ui-enter")) {
+    return;
+  }
+  node.classList.add("ui-enter");
+  window.setTimeout(() => {
+    node.classList.remove("ui-enter");
+  }, 650);
+}
