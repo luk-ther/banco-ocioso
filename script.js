@@ -247,6 +247,7 @@ let deviceNotificationPollTimer = null;
 let presenceHeartbeatTimer = null;
 let presenceVisibilityBound = false;
 let presencePagehideBound = false;
+const loadedProfileFonts = new Set();
 
 const DEVICE_NOTIFY_PREF_KEY = "bo_device_notifications_enabled";
 const SYSTEM_PREF_KEYS = {
@@ -386,9 +387,21 @@ setupPublicProfileUI();
 setupVaultHandlers();
 setupMoneyInputs();
 setupVaultGroupToggles();
-setupInteractionAnimations();
-void setupDeviceNotifications();
+runWhenIdle(() => {
+  setupInteractionAnimations();
+}, 1400);
 init();
+
+function runWhenIdle(task, timeout = 1200) {
+  if (typeof task !== "function") {
+    return;
+  }
+  if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(() => task(), { timeout });
+    return;
+  }
+  window.setTimeout(task, Math.min(Math.max(timeout, 250), 1800));
+}
 
 async function init() {
   const currentPage = getCurrentPageName();
@@ -448,6 +461,9 @@ async function init() {
   }
 
   if (currentUser) {
+    runWhenIdle(() => {
+      void setupDeviceNotifications();
+    }, 1100);
     await loadVaultsFromDb();
     await loadUserProfile();
   } else {
@@ -494,6 +510,9 @@ async function init() {
     }
 
     if (currentUser) {
+      runWhenIdle(() => {
+        void setupDeviceNotifications();
+      }, 1100);
       await loadVaultsFromDb();
       await loadUserProfile();
     } else {
@@ -1322,7 +1341,46 @@ function updateProfilePreview(profile) {
   }
 }
 
+function ensureProfileFontLoaded(fontKey) {
+  const key = String(fontKey || "").toLowerCase();
+  const familyByKey = {
+    montserrat: "Montserrat:wght@400;500;700",
+    nunito: "Nunito:wght@400;600;700",
+    raleway: "Raleway:wght@400;500;700",
+    oswald: "Oswald:wght@400;500;700",
+    lora: "Lora:wght@400;500;700",
+    merriweather: "Merriweather:wght@400;700",
+    playfair: "Playfair+Display:wght@400;600;700",
+    fira: "Fira+Sans:wght@400;500;700",
+    dmsans: "DM+Sans:wght@400;500;700",
+    bebas: "Bebas+Neue",
+  };
+
+  const family = familyByKey[key];
+  if (!family || loadedProfileFonts.has(key)) {
+    return;
+  }
+
+  if (!(document && document.head)) {
+    return;
+  }
+
+  const existing = document.querySelector(`link[data-profile-font="${key}"]`);
+  if (existing) {
+    loadedProfileFonts.add(key);
+    return;
+  }
+
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = `https://fonts.googleapis.com/css2?family=${family}&display=swap`;
+  link.setAttribute("data-profile-font", key);
+  document.head.appendChild(link);
+  loadedProfileFonts.add(key);
+}
+
 function getNameFontFamily(fontKey) {
+  ensureProfileFontLoaded(fontKey);
   switch (String(fontKey || "").toLowerCase()) {
     case "montserrat":
       return "'Montserrat', 'Sora', sans-serif";
