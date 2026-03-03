@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Banco Ocioso | Configurações</title>
+  <meta name="description" content="Ajuste notificações, status social e preferências da conta no Banco Ocioso." />
+  <link rel="icon" type="image/svg+xml" href="img/favicon.svg" />
+  <link rel="icon" type="image/png" href="img/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&family=Poppins:wght@400;600;700&family=Sora:wght@400;600;700;800&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-grid" aria-hidden="true"></div>
+
+  <header class="header">
+    <a class="brand" href="index.html">
+      <span class="brand-dot"></span>
+      Banco Ocioso
+    </a>
+    <button id="menuToggle" class="menu-toggle" type="button" aria-expanded="false" aria-controls="mainNav">
+      Menu
+    </button>
+    <nav id="mainNav" class="nav">
+      <a href="index.html">Cofres</a>
+      <a href="chats.html">Chats</a>
+      <a href="notificacoes.html">Notificações</a>
+      <a href="perfil.html">Perfil</a>
+    </nav>
+
+    <div class="auth-widget" aria-live="polite">
+      <button id="authToggle" class="auth-toggle" type="button" aria-label="Abrir login" aria-expanded="false" aria-controls="authPanel">
+        Login
+      </button>
+
+      <div id="authPanel" class="auth-float-panel" aria-hidden="true">
+        <div class="auth-head">
+          <strong>Acesso da conta</strong>
+          <button id="authClose" class="auth-close" type="button" aria-label="Fechar login">×</button>
+        </div>
+
+        <div id="authGuest" class="auth-panel">
+          <div class="auth-tabs">
+            <button id="tabLogin" class="btn btn-ghost auth-tab active" type="button">Entrar</button>
+            <button id="tabRegister" class="btn btn-ghost auth-tab" type="button">Criar conta</button>
+          </div>
+
+          <form id="loginForm" class="auth-form" novalidate>
+            <div class="field-grid auth-grid">
+              <label>
+                E-mail
+                <input id="loginEmail" type="email" placeholder="voce@email.com" required />
+              </label>
+              <label>
+                Senha
+                <input id="loginPassword" type="password" placeholder="Sua senha" required />
+              </label>
+            </div>
+            <button class="btn btn-primary" type="submit">Entrar agora</button>
+          </form>
+
+          <form id="registerForm" class="auth-form hidden" novalidate>
+            <div class="field-grid auth-grid">
+              <label>
+                E-mail
+                <input id="registerEmail" type="email" placeholder="voce@email.com" required />
+              </label>
+              <label>
+                Nome
+                <input id="registerName" type="text" placeholder="Seu nome" required />
+              </label>
+              <label>
+                Senha
+                <input id="registerPassword" type="password" placeholder="Minimo 6 caracteres" required />
+              </label>
+            </div>
+            <button class="btn btn-primary" type="submit">Criar conta</button>
+          </form>
+        </div>
+
+        <div id="authUser" class="auth-panel hidden">
+          <p class="auth-welcome">Conectado como <strong id="authUserName"></strong>.</p>
+          <a class="btn btn-primary auth-user-link" href="perfil.html">Abrir perfil</a>
+          <a class="btn btn-ghost auth-user-link" href="personalizacao.html">Personalizar perfil</a>
+          <button id="logoutBtn" class="btn btn-ghost" type="button">Sair</button>
+        </div>
+
+        <p id="authFeedback" class="feedback" aria-live="polite"></p>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="settingsRoot" class="section reveal visible">
+      <div class="section-head">
+        <h2>Configurações</h2>
+        <p>Ajuste sistema, social e políticas da sua conta.</p>
+      </div>
+
+      <div id="settingsGuest" class="panel hidden">
+        <p class="section-copy">Entre na sua conta para editar as configurações.</p>
+        <button id="settingsOpenLogin" class="btn btn-primary" type="button">Entrar na conta</button>
+      </div>
+
+      <div id="settingsUser" class="settings-layout hidden">
+        <article class="panel settings-panel">
+          <h3>Sistema</h3>
+          <p class="vault-meta">Controle notificações reais no dispositivo e comportamento visual do app.</p>
+
+          <div class="settings-stack">
+            <article class="settings-toggle-card">
+              <div>
+                <strong>Notificacoes do dispositivo</strong>
+                <p>Alertas reais no celular/desktop quando permitido pelo navegador.</p>
+              </div>
+              <button class="settings-toggle-btn" type="button" data-setting-toggle="settingsSystemDeviceNotifications" aria-pressed="false">
+                <span class="settings-toggle-knob" aria-hidden="true"></span>
+                <span class="settings-toggle-state" data-on="Ativado" data-off="Desativado">Desativado</span>
+              </button>
+              <input id="settingsSystemDeviceNotifications" class="settings-native-input" type="checkbox" />
+            </article>
+
+            <article class="settings-toggle-card">
+              <div>
+                <strong>Notificar mensagens</strong>
+                <p>Receber aviso para nova mensagem de amigos.</p>
+              </div>
+              <button class="settings-toggle-btn" type="button" data-setting-toggle="settingsSystemNotifyMessages" aria-pressed="false">
+                <span class="settings-toggle-knob" aria-hidden="true"></span>
+                <span class="settings-toggle-state" data-on="Ativo" data-off="Inativo">Inativo</span>
+              </button>
+              <input id="settingsSystemNotifyMessages" class="settings-native-input" type="checkbox" />
+            </article>
+
+            <article class="settings-toggle-card">
+              <div>
+                <strong>Notificar amizades</strong>
+                <p>Receber aviso de novas solicitacoes de amizade.</p>
+              </div>
+              <button class="settings-toggle-btn" type="button" data-setting-toggle="settingsSystemNotifyRequests" aria-pressed="false">
+                <span class="settings-toggle-knob" aria-hidden="true"></span>
+                <span class="settings-toggle-state" data-on="Ativo" data-off="Inativo">Inativo</span>
+              </button>
+              <input id="settingsSystemNotifyRequests" class="settings-native-input" type="checkbox" />
+            </article>
+
+            <article class="settings-toggle-card">
+              <div>
+                <strong>Notificar metas</strong>
+                <p>Receber aviso quando uma meta for concluida.</p>
+              </div>
+              <button class="settings-toggle-btn" type="button" data-setting-toggle="settingsSystemNotifyGoals" aria-pressed="false">
+                <span class="settings-toggle-knob" aria-hidden="true"></span>
+                <span class="settings-toggle-state" data-on="Ativo" data-off="Inativo">Inativo</span>
+              </button>
+              <input id="settingsSystemNotifyGoals" class="settings-native-input" type="checkbox" />
+            </article>
+
+            <article class="settings-toggle-card">
+              <div>
+                <strong>Reduzir animacoes</strong>
+                <p>Diminui transicoes para uma navegacao mais leve.</p>
+              </div>
+              <button class="settings-toggle-btn" type="button" data-setting-toggle="settingsSystemReduceMotion" aria-pressed="false">
+                <span class="settings-toggle-knob" aria-hidden="true"></span>
+                <span class="settings-toggle-state" data-on="Ativo" data-off="Inativo">Inativo</span>
+              </button>
+              <input id="settingsSystemReduceMotion" class="settings-native-input" type="checkbox" />
+            </article>
+          </div>
+
+          <div class="settings-actions">
+            <button id="settingsEnableDeviceBtn" class="btn btn-ghost" type="button">Permitir no dispositivo</button>
+            <button id="settingsSystemSaveBtn" class="btn btn-primary" type="button">Salvar sistema</button>
+          </div>
+          <p id="settingsSystemFeedback" class="feedback" aria-live="polite"></p>
+        </article>
+
+        <article class="panel settings-panel">
+          <h3>Social</h3>
+          <p class="vault-meta">Defina seu status e quem pode interagir com você.</p>
+
+          <div class="settings-status-wrap">
+            <strong>Status escolhido</strong>
+            <p>Use os botões abaixo. Se a conta ficar sem atividade, o sistema alterna automaticamente para Offline.</p>
+            <div id="settingsPresenceStatusGroup" class="settings-status-grid" role="group" aria-label="Status social">
+              <button class="settings-status-btn" type="button" data-status="online" aria-pressed="false">Online</button>
+              <button class="settings-status-btn" type="button" data-status="dnd" aria-pressed="false">Não perturbe</button>
+              <button class="settings-status-btn" type="button" data-status="away" aria-pressed="false">Ausente</button>
+              <button class="settings-status-btn" type="button" data-status="offline" aria-pressed="false">Offline</button>
+            </div>
+            <input id="settingsPresenceStatus" class="settings-native-input" type="hidden" value="online" />
+            <span id="settingsCurrentStatus" class="settings-status-pill" data-status="offline">Status atual: Offline</span>
+          </div>
+
+          <div class="settings-stack">
+            <article class="settings-toggle-card">
+              <div>
+                <strong>Solicitacoes de amizade</strong>
+                <p>Permite que pessoas enviem pedido para voce.</p>
+              </div>
+              <button class="settings-toggle-btn" type="button" data-setting-toggle="settingsAllowFriendRequests" aria-pressed="false">
+                <span class="settings-toggle-knob" aria-hidden="true"></span>
+                <span class="settings-toggle-state" data-on="Permitido" data-off="Bloqueado">Bloqueado</span>
+              </button>
+              <input id="settingsAllowFriendRequests" class="settings-native-input" type="checkbox" />
+            </article>
+
+            <article class="settings-toggle-card">
+              <div>
+                <strong>Seguidores</strong>
+                <p>Permite que outras pessoas sigam seu perfil.</p>
+              </div>
+              <button class="settings-toggle-btn" type="button" data-setting-toggle="settingsAllowFollowers" aria-pressed="false">
+                <span class="settings-toggle-knob" aria-hidden="true"></span>
+                <span class="settings-toggle-state" data-on="Permitido" data-off="Bloqueado">Bloqueado</span>
+              </button>
+              <input id="settingsAllowFollowers" class="settings-native-input" type="checkbox" />
+            </article>
+
+            <article class="settings-toggle-card">
+              <div>
+                <strong>Visibilidade no ranking</strong>
+                <p>Mostra ou oculta seu nome no ranking global.</p>
+              </div>
+              <button class="settings-toggle-btn" type="button" data-setting-toggle="settingsShowInRanking" aria-pressed="false">
+                <span class="settings-toggle-knob" aria-hidden="true"></span>
+                <span class="settings-toggle-state" data-on="Visivel" data-off="Oculto">Oculto</span>
+              </button>
+              <input id="settingsShowInRanking" class="settings-native-input" type="checkbox" />
+            </article>
+          </div>
+
+          <div class="settings-actions">
+            <button id="settingsSocialSaveBtn" class="btn btn-primary" type="button">Salvar social</button>
+          </div>
+          <p id="settingsSocialFeedback" class="feedback" aria-live="polite"></p>
+        </article>
+
+        <article class="panel settings-panel settings-quick-links">
+          <h3>Termos e privacidade</h3>
+          <p class="vault-meta">Acesse os documentos legais e os atalhos essenciais da conta.</p>
+          <div class="settings-links">
+            <a class="btn btn-ghost" href="termos.html">Termos de uso</a>
+            <a class="btn btn-ghost" href="privacidade.html">Política de privacidade</a>
+            <a class="btn btn-ghost" href="personalizacao.html">Personalizar perfil</a>
+            <a class="btn btn-ghost" href="ranking.html">Ver ranking global</a>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <nav class="app-bottom-nav" aria-label="Navegação principal do app">
+    <a class="app-nav-item" href="index.html" aria-label="Cofres">
+      <span class="app-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 9.5V20h16V9.5M2 10l10-8 10 8"/><path d="M9 20v-6h6v6"/></svg></span>
+      <span class="app-nav-label">Cofres</span>
+    </a>
+    <a class="app-nav-item" href="chats.html" aria-label="Chats">
+      <span class="app-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 5h14v10H9l-4 4V5z"/><path d="M8 9h8M8 12h5"/></svg></span>
+      <span class="app-nav-label">Chats</span>
+    </a>
+    <a class="app-nav-item" href="notificacoes.html" aria-label="Notificações">
+      <span class="app-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 17H5l-2 2V9a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v4"/><path d="M18 8v1"/><path d="M18 11a4 4 0 0 1 4 4c0 2.2-1.8 4-4 4s-4-1.8-4-4 1.8-4 4-4z"/></svg></span>
+      <span class="app-nav-label">Notificações</span>
+    </a>
+    <a class="app-nav-item" href="perfil.html" aria-current="page" aria-label="Perfil">
+      <span class="app-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10z"/><path d="M3 21a9 9 0 0 1 18 0"/></svg></span>
+      <span class="app-nav-label">Perfil</span>
+    </a>
+  </nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

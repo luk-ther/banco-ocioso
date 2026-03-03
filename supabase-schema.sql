@@ -13,8 +13,13 @@ create table if not exists public.user_profiles (
   display_name text not null check (char_length(display_name) between 1 and 32),
   theme_key text not null default 'neon' check (theme_key in ('neon', 'ocean', 'sunset', 'graphite', 'aurora', 'midnight', 'ember', 'forest', 'royal', 'ruby', 'ice', 'sand', 'violet', 'carbon')),
   accent_color text not null default '#0ce0ff' check (accent_color ~ '^#[0-9A-Fa-f]{6}$'),
-  name_font text not null default 'sora' check (name_font in ('sora', 'manrope', 'space', 'poppins')),
+  name_font text not null default 'sora' check (name_font in ('sora', 'manrope', 'space', 'poppins', 'montserrat', 'nunito', 'raleway', 'oswald', 'lora', 'merriweather', 'playfair', 'fira', 'dmsans', 'bebas')),
   decoration text not null default 'glow' check (decoration in ('glow', 'ring', 'spark', 'pulse', 'grid', 'stars', 'stripes', 'dots')),
+  presence_status text not null default 'online' check (presence_status in ('online', 'dnd', 'away', 'offline')),
+  last_seen_at timestamptz not null default now(),
+  allow_friend_requests boolean not null default true,
+  allow_followers boolean not null default true,
+  show_in_ranking boolean not null default true,
   bio text not null default '' check (char_length(bio) <= 180),
   avatar_url text not null default '',
   banner_url text not null default '' check (char_length(banner_url) <= 560000),
@@ -64,14 +69,30 @@ create table if not exists public.social_messages (
 alter table public.user_profiles add column if not exists avatar_url text not null default '';
 alter table public.user_profiles add column if not exists bio text not null default '';
 alter table public.user_profiles add column if not exists banner_url text not null default '';
+alter table public.user_profiles add column if not exists presence_status text not null default 'online';
+alter table public.user_profiles add column if not exists last_seen_at timestamptz not null default now();
+alter table public.user_profiles add column if not exists allow_friend_requests boolean not null default true;
+alter table public.user_profiles add column if not exists allow_followers boolean not null default true;
+alter table public.user_profiles add column if not exists show_in_ranking boolean not null default true;
 
 alter table public.user_profiles drop constraint if exists user_profiles_theme_key_check;
 alter table public.user_profiles add constraint user_profiles_theme_key_check
 check (theme_key in ('neon', 'ocean', 'sunset', 'graphite', 'aurora', 'midnight', 'ember', 'forest', 'royal', 'ruby', 'ice', 'sand', 'violet', 'carbon'));
 
+alter table public.user_profiles drop constraint if exists user_profiles_name_font_check;
+alter table public.user_profiles add constraint user_profiles_name_font_check
+check (name_font in ('sora', 'manrope', 'space', 'poppins', 'montserrat', 'nunito', 'raleway', 'oswald', 'lora', 'merriweather', 'playfair', 'fira', 'dmsans', 'bebas'));
+
 alter table public.user_profiles drop constraint if exists user_profiles_decoration_check;
 alter table public.user_profiles add constraint user_profiles_decoration_check
 check (decoration in ('glow', 'ring', 'spark', 'pulse', 'grid', 'stars', 'stripes', 'dots'));
+
+alter table public.user_profiles drop constraint if exists user_profiles_presence_status_check;
+update public.user_profiles
+set presence_status = 'offline'
+where coalesce(presence_status, '') not in ('online', 'dnd', 'away', 'offline');
+alter table public.user_profiles add constraint user_profiles_presence_status_check
+check (presence_status in ('online', 'dnd', 'away', 'offline'));
 
 alter table public.user_profiles drop constraint if exists user_profiles_bio_check;
 alter table public.user_profiles add constraint user_profiles_bio_check
@@ -166,6 +187,14 @@ for insert
 with check (
   auth.uid() = follower_id
   and follower_id <> followed_id
+  and coalesce(
+    (
+      select up.allow_followers
+      from public.user_profiles up
+      where up.user_id = followed_id
+    ),
+    true
+  )
 );
 
 create policy "social_follows_delete_own"
@@ -188,6 +217,14 @@ with check (
   auth.uid() = requester_id
   and requester_id <> addressee_id
   and status = 'pending'
+  and coalesce(
+    (
+      select up.allow_friend_requests
+      from public.user_profiles up
+      where up.user_id = addressee_id
+    ),
+    true
+  )
 );
 
 create policy "social_friend_requests_update_related"
@@ -269,6 +306,12 @@ on public.vaults (user_id, updated_at desc);
 
 create index if not exists user_profiles_goals_completed_idx
 on public.user_profiles (goals_completed desc, updated_at asc);
+
+create index if not exists user_profiles_ranking_visibility_idx
+on public.user_profiles (show_in_ranking, goals_completed desc, updated_at asc);
+
+create index if not exists user_profiles_presence_last_seen_idx
+on public.user_profiles (presence_status, last_seen_at desc);
 
 create index if not exists social_follows_followed_id_idx
 on public.social_follows (followed_id, created_at desc);

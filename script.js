@@ -16,6 +16,7 @@ const AUTH_REQUIRED_PAGES = new Set([
   "chats.html",
   "notificacoes.html",
   "perfil.html",
+  "configuracoes.html",
   "personalizacao.html",
   "ranking.html",
   "perfil-publico.html",
@@ -62,6 +63,30 @@ const PROFILE_THEME_LABELS = {
   violet: "Violet",
   carbon: "Carbon",
 };
+const PROFILE_NAME_FONT_KEYS = [
+  "sora",
+  "manrope",
+  "space",
+  "poppins",
+  "montserrat",
+  "nunito",
+  "raleway",
+  "oswald",
+  "lora",
+  "merriweather",
+  "playfair",
+  "fira",
+  "dmsans",
+  "bebas",
+];
+const PRESENCE_STATUS_KEYS = ["online", "dnd", "away", "offline"];
+const PRESENCE_STATUS_LABELS = {
+  online: "Online",
+  dnd: "Nao perturbe",
+  away: "Ausente",
+  offline: "Offline",
+};
+const PRESENCE_ONLINE_WINDOW_MS = 3 * 60 * 1000;
 
 const revealNodes = document.querySelectorAll(".reveal");
 const rulesCheckbox = document.getElementById("confirmRules");
@@ -117,6 +142,28 @@ const profileHubGuest = document.getElementById("profileHubGuest");
 const profileHubUser = document.getElementById("profileHubUser");
 const profileHubOpenLogin = document.getElementById("profileHubOpenLogin");
 const profileHubDisplayName = document.getElementById("profileHubDisplayName");
+const settingsRoot = document.getElementById("settingsRoot");
+const settingsGuest = document.getElementById("settingsGuest");
+const settingsUser = document.getElementById("settingsUser");
+const settingsOpenLogin = document.getElementById("settingsOpenLogin");
+const settingsSystemDeviceNotifications = document.getElementById("settingsSystemDeviceNotifications");
+const settingsSystemNotifyMessages = document.getElementById("settingsSystemNotifyMessages");
+const settingsSystemNotifyRequests = document.getElementById("settingsSystemNotifyRequests");
+const settingsSystemNotifyGoals = document.getElementById("settingsSystemNotifyGoals");
+const settingsSystemReduceMotion = document.getElementById("settingsSystemReduceMotion");
+const settingsEnableDeviceBtn = document.getElementById("settingsEnableDeviceBtn");
+const settingsSystemSaveBtn = document.getElementById("settingsSystemSaveBtn");
+const settingsSystemFeedback = document.getElementById("settingsSystemFeedback");
+const settingsPresenceStatus = document.getElementById("settingsPresenceStatus");
+const settingsPresenceStatusGroup = document.getElementById("settingsPresenceStatusGroup");
+const settingsPresenceButtons = document.querySelectorAll(".settings-status-btn[data-status]");
+const settingsCurrentStatus = document.getElementById("settingsCurrentStatus");
+const settingsToggleButtons = document.querySelectorAll(".settings-toggle-btn[data-setting-toggle]");
+const settingsAllowFriendRequests = document.getElementById("settingsAllowFriendRequests");
+const settingsAllowFollowers = document.getElementById("settingsAllowFollowers");
+const settingsShowInRanking = document.getElementById("settingsShowInRanking");
+const settingsSocialSaveBtn = document.getElementById("settingsSocialSaveBtn");
+const settingsSocialFeedback = document.getElementById("settingsSocialFeedback");
 const profileForm = document.getElementById("profileForm");
 const profileDisplayNameInput = document.getElementById("profileDisplayName");
 const profileThemeSelect = document.getElementById("profileTheme");
@@ -197,8 +244,17 @@ let knownPendingRequestIds = new Set();
 let messageNotificationPrimed = false;
 let requestNotificationPrimed = false;
 let deviceNotificationPollTimer = null;
+let presenceHeartbeatTimer = null;
+let presenceVisibilityBound = false;
+let presencePagehideBound = false;
 
 const DEVICE_NOTIFY_PREF_KEY = "bo_device_notifications_enabled";
+const SYSTEM_PREF_KEYS = {
+  notifyMessages: "bo_notify_messages_enabled",
+  notifyRequests: "bo_notify_friend_requests_enabled",
+  notifyGoals: "bo_notify_goal_completed_enabled",
+  reduceMotion: "bo_reduce_motion_enabled",
+};
 const INTERACTION_TARGET_SELECTOR = [
   "button",
   ".btn",
@@ -223,6 +279,8 @@ const INTERACTION_TARGET_SELECTOR = [
 
 let feedbackMotionObserver = null;
 let interactionInsertObserver = null;
+
+applyMotionPreferenceFromStorage();
 
 function getCurrentPageName() {
   return (window.location.pathname.split("/").pop() || "index.html").toLowerCase();
@@ -320,6 +378,7 @@ setupBottomNav();
 setupInboxUI();
 setupNotificationsUI();
 setupProfileHubUI();
+setupSettingsUI();
 setupAuthUI();
 setupProfileUI();
 setupRankingInteractions();
@@ -337,6 +396,7 @@ async function init() {
 
   if (!supabaseReady) {
     stopDeviceNotificationPolling();
+    stopPresenceHeartbeat();
     resetDeviceNotificationCaches();
     setAuthError("Configure SUPABASE_URL e SUPABASE_ANON_KEY em supabase-config.js.");
     disableAuthForms();
@@ -347,6 +407,7 @@ async function init() {
     resetPublicProfileUI("Faça login e execute o SQL social para usar perfis públicos completos.");
     resetInboxUI("Configure o Supabase para usar chats.");
     resetNotificationsUI("Configure o Supabase para usar notificações.");
+    resetSettingsUI("Configure o Supabase para usar as configurações da conta.", "");
     updateProfileHubUI();
     return;
   }
@@ -383,6 +444,7 @@ async function init() {
   if (!currentUser) {
     resetDeviceNotificationCaches();
     stopDeviceNotificationPolling();
+    stopPresenceHeartbeat();
   }
 
   if (currentUser) {
@@ -395,7 +457,9 @@ async function init() {
   await loadPublicProfilePageData();
   await loadInboxPageData();
   await loadNotificationsPageData();
+  await loadSettingsPageData();
   if (currentUser) {
+    startPresenceHeartbeat();
     await pollDeviceNotificationsOnce();
     startDeviceNotificationPolling();
   }
@@ -426,6 +490,7 @@ async function init() {
     if (!currentUser) {
       resetDeviceNotificationCaches();
       stopDeviceNotificationPolling();
+      stopPresenceHeartbeat();
     }
 
     if (currentUser) {
@@ -440,7 +505,9 @@ async function init() {
     await loadPublicProfilePageData();
     await loadInboxPageData();
     await loadNotificationsPageData();
+    await loadSettingsPageData();
     if (currentUser) {
+      startPresenceHeartbeat();
       await pollDeviceNotificationsOnce();
       startDeviceNotificationPolling();
     }
@@ -605,6 +672,10 @@ function setupAuthUI() {
       return;
     }
 
+    if (currentUser) {
+      await touchCurrentUserPresence("offline");
+    }
+
     const { error } = await supabaseClient.auth.signOut();
     if (error) {
       setAuthError(getFriendlyAuthError(error));
@@ -759,6 +830,11 @@ function setupProfileUI() {
       avatar_url: draft.avatar_url,
       banner_url: draft.banner_url,
       goals_completed: countCompletedGoals(),
+      presence_status: draft.presence_status,
+      last_seen_at: draft.last_seen_at,
+      allow_friend_requests: draft.allow_friend_requests,
+      allow_followers: draft.allow_followers,
+      show_in_ranking: draft.show_in_ranking,
       updated_at: new Date().toISOString(),
     };
 
@@ -850,9 +926,56 @@ function getDefaultProfile(user) {
     avatar_url: "",
     banner_url: "",
     goals_completed: 0,
+    presence_status: "online",
+    last_seen_at: new Date().toISOString(),
+    allow_friend_requests: true,
+    allow_followers: true,
+    show_in_ranking: true,
     created_at: typeof user?.created_at === "string" ? user.created_at : new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
+}
+
+function normalizeBooleanFlag(value, fallback) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (value === 1 || value === "1" || value === "true") {
+    return true;
+  }
+  if (value === 0 || value === "0" || value === "false") {
+    return false;
+  }
+  return Boolean(fallback);
+}
+
+function getPresenceStatusLabel(statusKey) {
+  const key = String(statusKey || "").toLowerCase();
+  return PRESENCE_STATUS_LABELS[key] || PRESENCE_STATUS_LABELS.online;
+}
+
+function getComputedPresenceStatus(profile) {
+  const safe = normalizeProfile(profile, null);
+  const seenAt = Date.parse(String(safe.last_seen_at || ""));
+  if (!Number.isFinite(seenAt)) {
+    return safe.presence_status === "offline" ? "offline" : "online";
+  }
+
+  if (Date.now() - seenAt > PRESENCE_ONLINE_WINDOW_MS) {
+    return "offline";
+  }
+
+  return safe.presence_status;
+}
+
+function updateSettingsCurrentStatus(profile = currentProfile) {
+  if (!settingsCurrentStatus) {
+    return;
+  }
+  const status = getComputedPresenceStatus(profile);
+  const label = getPresenceStatusLabel(status);
+  settingsCurrentStatus.textContent = `Status atual: ${label}`;
+  settingsCurrentStatus.dataset.status = status;
 }
 
 function normalizeProfile(input, user = currentUser) {
@@ -861,7 +984,7 @@ function normalizeProfile(input, user = currentUser) {
   const theme = PROFILE_THEME_KEYS.includes(String(safe.theme_key || "").toLowerCase())
     ? String(safe.theme_key).toLowerCase()
     : fallback.theme_key;
-  const nameFont = ["sora", "manrope", "space", "poppins"].includes(String(safe.name_font || "").toLowerCase())
+  const nameFont = PROFILE_NAME_FONT_KEYS.includes(String(safe.name_font || "").toLowerCase())
     ? String(safe.name_font).toLowerCase()
     : fallback.name_font;
   const decoration = PROFILE_DECORATION_KEYS.includes(String(safe.decoration || "").toLowerCase())
@@ -875,6 +998,15 @@ function normalizeProfile(input, user = currentUser) {
   const goalsCompleted = Number.isFinite(Number(safe.goals_completed)) && Number(safe.goals_completed) >= 0
     ? Math.floor(Number(safe.goals_completed))
     : 0;
+  const presenceStatus = PRESENCE_STATUS_KEYS.includes(String(safe.presence_status || "").toLowerCase())
+    ? String(safe.presence_status).toLowerCase()
+    : fallback.presence_status;
+  const lastSeenAt = typeof safe.last_seen_at === "string" && safe.last_seen_at.trim()
+    ? safe.last_seen_at
+    : fallback.last_seen_at;
+  const allowFriendRequests = normalizeBooleanFlag(safe.allow_friend_requests, fallback.allow_friend_requests);
+  const allowFollowers = normalizeBooleanFlag(safe.allow_followers, fallback.allow_followers);
+  const showInRanking = normalizeBooleanFlag(safe.show_in_ranking, fallback.show_in_ranking);
 
   return {
     user_id: String(safe.user_id || fallback.user_id || ""),
@@ -887,6 +1019,11 @@ function normalizeProfile(input, user = currentUser) {
     avatar_url: avatarUrl,
     banner_url: bannerUrl,
     goals_completed: goalsCompleted,
+    presence_status: presenceStatus,
+    last_seen_at: lastSeenAt,
+    allow_friend_requests: allowFriendRequests,
+    allow_followers: allowFollowers,
+    show_in_ranking: showInRanking,
     created_at: typeof safe.created_at === "string" ? safe.created_at : fallback.created_at,
     updated_at: typeof safe.updated_at === "string" ? safe.updated_at : new Date().toISOString(),
   };
@@ -1187,6 +1324,26 @@ function updateProfilePreview(profile) {
 
 function getNameFontFamily(fontKey) {
   switch (String(fontKey || "").toLowerCase()) {
+    case "montserrat":
+      return "'Montserrat', 'Sora', sans-serif";
+    case "nunito":
+      return "'Nunito', 'Manrope', sans-serif";
+    case "raleway":
+      return "'Raleway', 'Sora', sans-serif";
+    case "oswald":
+      return "'Oswald', 'Sora', sans-serif";
+    case "lora":
+      return "'Lora', 'Times New Roman', serif";
+    case "merriweather":
+      return "'Merriweather', 'Times New Roman', serif";
+    case "playfair":
+      return "'Playfair Display', 'Times New Roman', serif";
+    case "fira":
+      return "'Fira Sans', 'Manrope', sans-serif";
+    case "dmsans":
+      return "'DM Sans', 'Manrope', sans-serif";
+    case "bebas":
+      return "'Bebas Neue', 'Sora', sans-serif";
     case "manrope":
       return "'Manrope', sans-serif";
     case "space":
@@ -1249,6 +1406,7 @@ function resetProfileUI() {
   hydrateProfileForm(fallback);
   updateProfilePreview(fallback);
   applyProfileAppearance(currentProfile);
+  updateSettingsCurrentStatus(currentProfile || fallback);
   setProfileFormDisabled(!currentUser);
   if (!currentUser) {
     setProfileMessage("Entre na sua conta para editar seu perfil.");
@@ -1287,6 +1445,11 @@ async function loadUserProfile() {
       avatar_url: defaultProfile.avatar_url,
       banner_url: defaultProfile.banner_url,
       goals_completed: countCompletedGoals(),
+      presence_status: defaultProfile.presence_status,
+      last_seen_at: defaultProfile.last_seen_at,
+      allow_friend_requests: defaultProfile.allow_friend_requests,
+      allow_followers: defaultProfile.allow_followers,
+      show_in_ranking: defaultProfile.show_in_ranking,
       updated_at: new Date().toISOString(),
     };
 
@@ -1309,6 +1472,7 @@ async function loadUserProfile() {
   hydrateProfileForm(currentProfile);
   applyProfileAppearance(currentProfile);
   updateProfilePreview(currentProfile);
+  updateSettingsCurrentStatus(currentProfile);
   setProfileFormDisabled(false);
   setProfileMessage("");
   await syncGoalsCompletedToProfile(false);
@@ -1344,6 +1508,11 @@ async function syncGoalsCompletedToProfile(force = false) {
     avatar_url: currentProfile.avatar_url,
     banner_url: currentProfile.banner_url,
     goals_completed: currentProfile.goals_completed,
+    presence_status: currentProfile.presence_status,
+    last_seen_at: currentProfile.last_seen_at,
+    allow_friend_requests: currentProfile.allow_friend_requests,
+    allow_followers: currentProfile.allow_followers,
+    show_in_ranking: currentProfile.show_in_ranking,
     updated_at: currentProfile.updated_at,
   };
 
@@ -1371,7 +1540,7 @@ async function loadGlobalRanking() {
 
   const { data, error } = await supabaseClient
     .from("user_profiles")
-    .select("user_id, display_name, goals_completed, theme_key, name_font, accent_color, decoration, bio, avatar_url, banner_url, created_at, updated_at")
+    .select("*")
     .order("goals_completed", { ascending: false })
     .order("updated_at", { ascending: true })
     .limit(50);
@@ -1392,10 +1561,12 @@ function renderRanking(items) {
   }
 
   rankingCache = Array.isArray(items)
-    ? items.map((item) => normalizeProfile(item, null))
+    ? items
+      .map((item) => normalizeProfile(item, null))
+      .filter((item) => item.show_in_ranking)
     : [];
 
-  if (!Array.isArray(items) || items.length === 0) {
+  if (rankingCache.length === 0) {
     rankingList.innerHTML = "<article class=\"ranking-item\"><span class=\"ranking-position\">-</span><div class=\"ranking-user\"><strong class=\"ranking-name\">Ainda sem dados no ranking</strong><span class=\"ranking-theme\">Complete metas para aparecer aqui.</span></div><span class=\"ranking-score\">0</span></article>";
     closeRankingProfile();
     return;
@@ -1408,13 +1579,14 @@ function renderRanking(items) {
     const goals = Number.isFinite(Number(safe.goals_completed)) ? Math.max(0, Math.floor(Number(safe.goals_completed))) : 0;
     const avatarSrc = escapeAttr(getAvatarSrc(safe));
     const profileHref = `perfil-publico.html?u=${encodeURIComponent(safe.user_id)}`;
+    const statusLabel = getPresenceStatusLabel(getComputedPresenceStatus(safe));
     return `
       <article class="ranking-item" tabindex="0" role="button" aria-label="Ver perfil de ${escapeHTML(safe.display_name)}" data-user-id="${safe.user_id}">
         <span class="ranking-position ${isTop ? "top" : ""}">${position}</span>
         <img class="ranking-avatar" src="${avatarSrc}" alt="Foto de ${escapeHTML(safe.display_name)}" loading="lazy" />
         <div class="ranking-user">
           <strong class="ranking-name" style="font-family:${fontFamily}">${escapeHTML(safe.display_name)}</strong>
-          <span class="ranking-theme">Tema: ${getThemeLabel(safe.theme_key)}</span>
+          <span class="ranking-theme">Tema: ${getThemeLabel(safe.theme_key)} • ${statusLabel}</span>
         </div>
         <div class="ranking-actions">
           <span class="ranking-score">${goals} metas</span>
@@ -1499,7 +1671,7 @@ function openRankingProfile(profile) {
   rankingProfileName.textContent = safe.display_name;
   rankingProfileName.style.color = safe.accent_color;
   rankingProfileName.style.fontFamily = fontFamily;
-  rankingProfileTheme.textContent = `Tema: ${getThemeLabel(safe.theme_key)} • Decoração: ${safe.decoration}`;
+  rankingProfileTheme.textContent = `Tema: ${getThemeLabel(safe.theme_key)} • Status: ${getPresenceStatusLabel(getComputedPresenceStatus(safe))} • Decoração: ${safe.decoration}`;
   rankingProfileGoals.textContent = `Metas batidas: ${goals}`;
   if (rankingProfileBio) {
     rankingProfileBio.textContent = safe.bio;
@@ -1537,6 +1709,13 @@ function setupPublicProfileUI() {
 
       followUserBtn.disabled = true;
       const shouldFollow = !socialRelationState.isFollowing;
+      const targetProfile = normalizeProfile(publicProfileTargetData, null);
+
+      if (shouldFollow && !targetProfile.allow_followers) {
+        followUserBtn.disabled = false;
+        setPublicProfileError("Este usuário desativou novos seguidores.");
+        return;
+      }
 
       const op = shouldFollow
         ? supabaseClient.from("social_follows").insert({ follower_id: currentUser.id, followed_id: publicProfileTargetId })
@@ -1563,6 +1742,7 @@ function setupPublicProfileUI() {
 
       friendActionBtn.disabled = true;
       const [userA, userB] = canonicalPairIds(currentUser.id, publicProfileTargetId);
+      const targetProfile = normalizeProfile(publicProfileTargetData, null);
 
       let error = null;
       if (socialRelationState.friendshipId) {
@@ -1594,6 +1774,11 @@ function setupPublicProfileUI() {
           .eq("id", socialRelationState.friendRequestOutgoingId);
         error = cancelReq.error;
       } else {
+        if (!targetProfile.allow_friend_requests) {
+          friendActionBtn.disabled = false;
+          setPublicProfileError("Este usuário desativou solicitações de amizade.");
+          return;
+        }
         const sendReq = await supabaseClient
           .from("social_friend_requests")
           .insert({
@@ -1840,17 +2025,34 @@ function renderPublicSocialActions() {
     return;
   }
   publicProfileActions.classList.remove("hidden");
+  const targetProfile = normalizeProfile(publicProfileTargetData, null);
 
-  followUserBtn.textContent = socialRelationState.isFollowing ? "Deixar de seguir" : "Seguir";
+  if (socialRelationState.isFollowing) {
+    followUserBtn.textContent = "Deixar de seguir";
+    followUserBtn.disabled = false;
+  } else if (!targetProfile.allow_followers) {
+    followUserBtn.textContent = "Seguidores desativados";
+    followUserBtn.disabled = true;
+  } else {
+    followUserBtn.textContent = "Seguir";
+    followUserBtn.disabled = false;
+  }
 
   if (socialRelationState.friendshipId) {
     friendActionBtn.textContent = "Desfazer amizade";
+    friendActionBtn.disabled = false;
   } else if (socialRelationState.friendRequestIncomingId) {
     friendActionBtn.textContent = "Aceitar amizade";
+    friendActionBtn.disabled = false;
   } else if (socialRelationState.friendRequestOutgoingId) {
     friendActionBtn.textContent = "Cancelar pedido";
+    friendActionBtn.disabled = false;
+  } else if (!targetProfile.allow_friend_requests) {
+    friendActionBtn.textContent = "Pedidos desativados";
+    friendActionBtn.disabled = true;
   } else {
     friendActionBtn.textContent = "Adicionar amigo";
+    friendActionBtn.disabled = false;
   }
 }
 
@@ -1990,6 +2192,7 @@ function renderPublicProfileCard(profile, stats) {
   }
   const safe = normalizeProfile(profile, null);
   const createdAt = safe.created_at ? new Date(safe.created_at).toLocaleDateString("pt-BR") : "-";
+  const statusLabel = getPresenceStatusLabel(getComputedPresenceStatus(safe));
 
   if (publicProfileHeaderCopy) {
     publicProfileHeaderCopy.textContent = `Perfil de ${safe.display_name}`;
@@ -2000,7 +2203,7 @@ function renderPublicProfileCard(profile, stats) {
   publicProfileName.style.fontFamily = getNameFontFamily(safe.name_font);
   publicProfileName.style.color = safe.accent_color;
   publicProfileTagline.textContent = safe.bio;
-  publicProfileMeta.textContent = `Conta criada em: ${createdAt}`;
+  publicProfileMeta.textContent = `Conta criada em: ${createdAt} • Status: ${statusLabel}`;
   applyProfileCardBanner(publicProfileCard, safe.banner_url);
 
   if (publicProfileAvatar) {
@@ -2908,6 +3111,13 @@ function handleGoalTransition(vault, previousBalance) {
   } else {
     showBottomNotice(`Meta batida no cofre "${vault.name}".`);
   }
+  if (getSystemNotificationGoalsEnabled()) {
+    void showDeviceNotification("Meta concluída", {
+      body: `Cofre "${vault.name}" atingiu a meta.`,
+      tag: `goal-complete-${vault.id}`,
+      data: { url: "index.html" },
+    });
+  }
   setTimeout(() => {
     renderVaults();
   }, 6100);
@@ -3029,6 +3239,137 @@ function setDeviceNotificationPreference(enabled) {
     localStorage.setItem(DEVICE_NOTIFY_PREF_KEY, enabled ? "1" : "0");
   } catch (_error) {
     // Sem bloqueio se localStorage não estiver disponível.
+  }
+}
+
+function getBooleanLocalPreference(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null) {
+      return fallback;
+    }
+    return raw === "1";
+  } catch (_error) {
+    return fallback;
+  }
+}
+
+function setBooleanLocalPreference(key, enabled) {
+  try {
+    localStorage.setItem(key, enabled ? "1" : "0");
+  } catch (_error) {
+    // Sem bloqueio se localStorage não estiver disponível.
+  }
+}
+
+function getSystemNotificationMessagesEnabled() {
+  return getBooleanLocalPreference(SYSTEM_PREF_KEYS.notifyMessages, true);
+}
+
+function getSystemNotificationRequestsEnabled() {
+  return getBooleanLocalPreference(SYSTEM_PREF_KEYS.notifyRequests, true);
+}
+
+function getSystemNotificationGoalsEnabled() {
+  return getBooleanLocalPreference(SYSTEM_PREF_KEYS.notifyGoals, true);
+}
+
+function getSystemReduceMotionEnabled() {
+  return getBooleanLocalPreference(SYSTEM_PREF_KEYS.reduceMotion, false);
+}
+
+function setSystemReduceMotionEnabled(enabled) {
+  setBooleanLocalPreference(SYSTEM_PREF_KEYS.reduceMotion, enabled);
+  applyMotionPreference(enabled);
+}
+
+function applyMotionPreference(enabled) {
+  if (!document.body) {
+    return;
+  }
+  document.body.classList.toggle("reduced-motion", Boolean(enabled));
+}
+
+function applyMotionPreferenceFromStorage() {
+  applyMotionPreference(getSystemReduceMotionEnabled());
+}
+
+async function touchCurrentUserPresence(setStatus = "") {
+  if (!supabaseReady || !currentUser) {
+    return;
+  }
+
+  const nowIso = new Date().toISOString();
+  const payload = {
+    last_seen_at: nowIso,
+    updated_at: nowIso,
+  };
+  if (setStatus) {
+    const normalizedStatus = PRESENCE_STATUS_KEYS.includes(String(setStatus).toLowerCase())
+      ? String(setStatus).toLowerCase()
+      : "online";
+    payload.presence_status = normalizedStatus;
+  }
+
+  const { data, error } = await supabaseClient
+    .from("user_profiles")
+    .update(payload)
+    .eq("user_id", currentUser.id)
+    .select("*")
+    .maybeSingle();
+
+  if (!error && data) {
+    currentProfile = normalizeProfile(data, currentUser);
+    updateSettingsCurrentStatus(currentProfile);
+  }
+}
+
+function startPresenceHeartbeat() {
+  stopPresenceHeartbeat();
+
+  if (!supabaseReady || !currentUser) {
+    return;
+  }
+
+  if (!presenceVisibilityBound) {
+    presenceVisibilityBound = true;
+    document.addEventListener("visibilitychange", () => {
+      if (!currentUser || document.visibilityState !== "visible") {
+        return;
+      }
+      void touchCurrentUserPresence();
+    });
+    window.addEventListener("focus", () => {
+      if (!currentUser) {
+        return;
+      }
+      void touchCurrentUserPresence();
+    });
+  }
+
+  if (!presencePagehideBound) {
+    presencePagehideBound = true;
+    window.addEventListener("pagehide", () => {
+      if (!currentUser) {
+        return;
+      }
+      void touchCurrentUserPresence("offline");
+    });
+  }
+
+  void touchCurrentUserPresence();
+  presenceHeartbeatTimer = window.setInterval(() => {
+    if (!currentUser || document.visibilityState !== "visible") {
+      return;
+    }
+    void touchCurrentUserPresence();
+  }, 60000);
+}
+
+function stopPresenceHeartbeat() {
+  if (presenceHeartbeatTimer) {
+    clearInterval(presenceHeartbeatTimer);
+    presenceHeartbeatTimer = null;
   }
 }
 
@@ -3279,6 +3620,9 @@ async function trackAndNotifyIncomingMessages(messageRows, profileMap, friendIds
       continue;
     }
     knownIncomingMessageIds.add(msgId);
+    if (!getSystemNotificationMessagesEnabled()) {
+      continue;
+    }
 
     const senderId = String(row.sender_id || "");
     const sender = profileMap.get(senderId);
@@ -3324,6 +3668,9 @@ async function trackAndNotifyFriendRequests(requestRows, profileMap) {
       continue;
     }
     knownPendingRequestIds.add(id);
+    if (!getSystemNotificationRequestsEnabled()) {
+      continue;
+    }
     const profile = profileMap.get(String(row.requester_id || ""));
     const name = profile?.display_name || "Usuário";
     await showDeviceNotification("Novo pedido de amizade", {
@@ -3373,6 +3720,319 @@ function updateProfileHubUI() {
       profileHubDisplayName.textContent = "Conta";
     }
   }
+}
+
+function syncSettingsToggleButton(targetId) {
+  if (!targetId) {
+    return;
+  }
+  const input = document.getElementById(targetId);
+  const button = document.querySelector(`.settings-toggle-btn[data-setting-toggle="${targetId}"]`);
+  if (!(input instanceof HTMLInputElement) || !(button instanceof HTMLElement)) {
+    return;
+  }
+
+  const isOn = Boolean(input.checked);
+  button.classList.toggle("is-on", isOn);
+  button.setAttribute("aria-pressed", String(isOn));
+  const labelNode = button.querySelector(".settings-toggle-state");
+  if (labelNode instanceof HTMLElement) {
+    const onLabel = String(labelNode.getAttribute("data-on") || "Ativo");
+    const offLabel = String(labelNode.getAttribute("data-off") || "Inativo");
+    labelNode.textContent = isOn ? onLabel : offLabel;
+  }
+}
+
+function syncAllSettingsToggleButtons() {
+  settingsToggleButtons.forEach((button) => {
+    const targetId = String(button.getAttribute("data-setting-toggle") || "");
+    if (targetId) {
+      syncSettingsToggleButton(targetId);
+    }
+  });
+}
+
+function setPresenceStatusSelection(rawStatus) {
+  const normalized = PRESENCE_STATUS_KEYS.includes(String(rawStatus || "").toLowerCase())
+    ? String(rawStatus).toLowerCase()
+    : "online";
+
+  if (settingsPresenceStatus) {
+    settingsPresenceStatus.value = normalized;
+  }
+
+  settingsPresenceButtons.forEach((button) => {
+    const buttonStatus = String(button.getAttribute("data-status") || "").toLowerCase();
+    const isActive = buttonStatus === normalized;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+}
+
+function setupSettingsUI() {
+  if (!settingsRoot) {
+    return;
+  }
+
+  settingsToggleButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const targetId = String(button.getAttribute("data-setting-toggle") || "");
+      const input = targetId ? document.getElementById(targetId) : null;
+      if (!(input instanceof HTMLInputElement)) {
+        return;
+      }
+      input.checked = !input.checked;
+      syncSettingsToggleButton(targetId);
+    });
+  });
+
+  if (settingsPresenceStatusGroup) {
+    settingsPresenceStatusGroup.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+      const button = target.closest(".settings-status-btn[data-status]");
+      if (!(button instanceof HTMLElement)) {
+        return;
+      }
+      const status = String(button.getAttribute("data-status") || "");
+      setPresenceStatusSelection(status);
+    });
+  }
+
+  if (settingsOpenLogin) {
+    settingsOpenLogin.addEventListener("click", () => {
+      if (!authPanel || !authToggle) {
+        return;
+      }
+      setAuthPanelState(true);
+    });
+  }
+
+  if (settingsSystemReduceMotion) {
+    settingsSystemReduceMotion.addEventListener("change", () => {
+      setSystemReduceMotionEnabled(Boolean(settingsSystemReduceMotion.checked));
+    });
+  }
+
+  if (settingsEnableDeviceBtn) {
+    settingsEnableDeviceBtn.addEventListener("click", async () => {
+      const granted = await requestDeviceNotificationPermission();
+      if (settingsSystemDeviceNotifications) {
+        settingsSystemDeviceNotifications.checked = getDeviceNotificationPreference();
+      }
+      syncSettingsToggleButton("settingsSystemDeviceNotifications");
+      if (granted) {
+        setSettingsSystemMessage("Permissão concedida. Notificações do dispositivo ativadas.");
+      } else {
+        const blocked = canUseDeviceNotifications() && Notification.permission === "denied";
+        setSettingsSystemMessage(
+          blocked
+            ? "Permissão bloqueada no navegador. Libere manualmente nas configurações do site."
+            : "Permissão não concedida.",
+          blocked
+        );
+      }
+    });
+  }
+
+  if (settingsSystemSaveBtn) {
+    settingsSystemSaveBtn.addEventListener("click", () => {
+      const deviceEnabled = Boolean(settingsSystemDeviceNotifications?.checked);
+      const messagesEnabled = Boolean(settingsSystemNotifyMessages?.checked);
+      const requestsEnabled = Boolean(settingsSystemNotifyRequests?.checked);
+      const goalsEnabled = Boolean(settingsSystemNotifyGoals?.checked);
+      const reduceMotionEnabled = Boolean(settingsSystemReduceMotion?.checked);
+
+      setDeviceNotificationPreference(deviceEnabled);
+      setBooleanLocalPreference(SYSTEM_PREF_KEYS.notifyMessages, messagesEnabled);
+      setBooleanLocalPreference(SYSTEM_PREF_KEYS.notifyRequests, requestsEnabled);
+      setBooleanLocalPreference(SYSTEM_PREF_KEYS.notifyGoals, goalsEnabled);
+      setSystemReduceMotionEnabled(reduceMotionEnabled);
+      syncAllSettingsToggleButtons();
+      syncDeviceNotificationStatusUI();
+
+      let message = "Configurações de sistema salvas.";
+      if (deviceEnabled && canUseDeviceNotifications() && Notification.permission === "default") {
+        message += " Toque em \"Permitir no dispositivo\" para concluir.";
+      }
+      setSettingsSystemMessage(message);
+    });
+  }
+
+  if (settingsSocialSaveBtn) {
+    settingsSocialSaveBtn.addEventListener("click", async () => {
+      if (!supabaseReady || !currentUser) {
+        setSettingsSocialMessage("Entre na sua conta para salvar preferências sociais.", true);
+        return;
+      }
+
+      const baseProfile = normalizeProfile(currentProfile || getDefaultProfile(currentUser), currentUser);
+      const nextProfile = normalizeProfile(
+        {
+          ...baseProfile,
+          presence_status: String(settingsPresenceStatus?.value || baseProfile.presence_status).toLowerCase(),
+          last_seen_at: new Date().toISOString(),
+          allow_friend_requests: Boolean(settingsAllowFriendRequests?.checked),
+          allow_followers: Boolean(settingsAllowFollowers?.checked),
+          show_in_ranking: Boolean(settingsShowInRanking?.checked),
+          updated_at: new Date().toISOString(),
+        },
+        currentUser
+      );
+
+      const payload = {
+        user_id: currentUser.id,
+        display_name: nextProfile.display_name,
+        theme_key: nextProfile.theme_key,
+        accent_color: nextProfile.accent_color,
+        name_font: nextProfile.name_font,
+        decoration: nextProfile.decoration,
+        bio: nextProfile.bio,
+        avatar_url: nextProfile.avatar_url,
+        banner_url: nextProfile.banner_url,
+        goals_completed: nextProfile.goals_completed,
+        presence_status: nextProfile.presence_status,
+        last_seen_at: nextProfile.last_seen_at,
+        allow_friend_requests: nextProfile.allow_friend_requests,
+        allow_followers: nextProfile.allow_followers,
+        show_in_ranking: nextProfile.show_in_ranking,
+        updated_at: nextProfile.updated_at,
+      };
+
+      const { data, error } = await supabaseClient
+        .from("user_profiles")
+        .upsert(payload, { onConflict: "user_id" })
+        .select("*")
+        .single();
+
+      if (error) {
+        setSettingsSocialMessage(getFriendlyProfileError(error), true);
+        return;
+      }
+
+      currentProfile = normalizeProfile(data, currentUser);
+      applyProfileAppearance(currentProfile);
+      updateProfilePreview(currentProfile);
+      updateAuthUI();
+      updateSettingsCurrentStatus(currentProfile);
+      setSettingsSocialMessage("Configurações sociais atualizadas.");
+      await loadGlobalRanking();
+      await loadPublicProfilePageData();
+    });
+  }
+}
+
+function setSettingsSystemMessage(message, isError = false) {
+  if (!settingsSystemFeedback) {
+    return;
+  }
+  settingsSystemFeedback.textContent = message;
+  settingsSystemFeedback.classList.toggle("error", Boolean(isError));
+}
+
+function setSettingsSocialMessage(message, isError = false) {
+  if (!settingsSocialFeedback) {
+    return;
+  }
+  settingsSocialFeedback.textContent = message;
+  settingsSocialFeedback.classList.toggle("error", Boolean(isError));
+}
+
+function resetSettingsUI(systemMessage = "", socialMessage = "") {
+  if (!settingsRoot) {
+    return;
+  }
+
+  if (settingsGuest) {
+    settingsGuest.classList.toggle("hidden", Boolean(currentUser));
+  }
+  if (settingsUser) {
+    settingsUser.classList.toggle("hidden", !currentUser);
+  }
+
+  if (settingsSystemDeviceNotifications) {
+    settingsSystemDeviceNotifications.checked = getDeviceNotificationPreference();
+  }
+  if (settingsSystemNotifyMessages) {
+    settingsSystemNotifyMessages.checked = getSystemNotificationMessagesEnabled();
+  }
+  if (settingsSystemNotifyRequests) {
+    settingsSystemNotifyRequests.checked = getSystemNotificationRequestsEnabled();
+  }
+  if (settingsSystemNotifyGoals) {
+    settingsSystemNotifyGoals.checked = getSystemNotificationGoalsEnabled();
+  }
+  if (settingsSystemReduceMotion) {
+    settingsSystemReduceMotion.checked = getSystemReduceMotionEnabled();
+  }
+  setPresenceStatusSelection(currentProfile?.presence_status || "online");
+  updateSettingsCurrentStatus(currentProfile);
+  syncAllSettingsToggleButtons();
+  applyMotionPreferenceFromStorage();
+  setSettingsSystemMessage(systemMessage);
+  setSettingsSocialMessage(socialMessage);
+}
+
+async function loadSettingsPageData() {
+  if (!settingsRoot) {
+    return;
+  }
+
+  if (!supabaseReady) {
+    resetSettingsUI("Supabase não configurado.", "");
+    return;
+  }
+
+  if (!currentUser) {
+    resetSettingsUI("Entre na sua conta para ajustar configurações de sistema.", "");
+    return;
+  }
+
+  const safeProfile = normalizeProfile(currentProfile || getDefaultProfile(currentUser), currentUser);
+  currentProfile = safeProfile;
+
+  if (settingsGuest) {
+    settingsGuest.classList.add("hidden");
+  }
+  if (settingsUser) {
+    settingsUser.classList.remove("hidden");
+  }
+
+  setPresenceStatusSelection(safeProfile.presence_status);
+
+  if (settingsAllowFriendRequests) {
+    settingsAllowFriendRequests.checked = safeProfile.allow_friend_requests;
+  }
+  if (settingsAllowFollowers) {
+    settingsAllowFollowers.checked = safeProfile.allow_followers;
+  }
+  if (settingsShowInRanking) {
+    settingsShowInRanking.checked = safeProfile.show_in_ranking;
+  }
+
+  if (settingsSystemDeviceNotifications) {
+    settingsSystemDeviceNotifications.checked = getDeviceNotificationPreference();
+  }
+  if (settingsSystemNotifyMessages) {
+    settingsSystemNotifyMessages.checked = getSystemNotificationMessagesEnabled();
+  }
+  if (settingsSystemNotifyRequests) {
+    settingsSystemNotifyRequests.checked = getSystemNotificationRequestsEnabled();
+  }
+  if (settingsSystemNotifyGoals) {
+    settingsSystemNotifyGoals.checked = getSystemNotificationGoalsEnabled();
+  }
+  if (settingsSystemReduceMotion) {
+    settingsSystemReduceMotion.checked = getSystemReduceMotionEnabled();
+  }
+
+  updateSettingsCurrentStatus(safeProfile);
+  syncAllSettingsToggleButtons();
+  applyMotionPreferenceFromStorage();
+  setSettingsSystemMessage("");
+  setSettingsSocialMessage("");
 }
 
 function setupInboxUI() {
