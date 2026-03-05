@@ -5,13 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Banco Ocioso | Cofres</title>
   <meta name="description" content="Banco Ocioso: área de cofres para registrar metas e aportes com foco em autocontrole." />
+  <meta name="theme-color" content="#000000" />
   <link rel="icon" type="image/svg+xml" href="img/favicon.svg" />
   <link rel="icon" type="image/png" href="img/favicon.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&family=Poppins:wght@400;600;700&family=Sora:wght@400;600;700;800&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
-  <link rel="package" href="package.json" />
 </head>
 <body>
   <div class="bg-grid" aria-hidden="true"></div>
@@ -228,8 +229,8 @@
   <script src="script.js"></script>
   <script>
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/service-worker.js');
+  navigator.serviceWorker.register('./sw.js');
 }
-</script>
+  </script>
 </body>
 </html>

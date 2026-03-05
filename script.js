@@ -238,15 +238,18 @@ let bottomNoticeNode = null;
 let inboxActiveUserId = "";
 let inboxThreadsCache = [];
 let inboxPollTimer = null;
+let inboxPollInFlight = false;
 let notificationServiceWorkerRegistration = null;
 let knownIncomingMessageIds = new Set();
 let knownPendingRequestIds = new Set();
 let messageNotificationPrimed = false;
 let requestNotificationPrimed = false;
 let deviceNotificationPollTimer = null;
+let deviceNotificationPollInFlight = false;
 let presenceHeartbeatTimer = null;
 let presenceVisibilityBound = false;
 let presencePagehideBound = false;
+let publicChatPollInFlight = false;
 const loadedProfileFonts = new Set();
 
 const DEVICE_NOTIFY_PREF_KEY = "bo_device_notifications_enabled";
@@ -280,6 +283,7 @@ const INTERACTION_TARGET_SELECTOR = [
 
 let feedbackMotionObserver = null;
 let interactionInsertObserver = null;
+const activeInteractionNodes = new Set();
 
 applyMotionPreferenceFromStorage();
 
@@ -2178,7 +2182,13 @@ function startPublicChatPolling() {
     if (!publicChatPanel || publicChatPanel.classList.contains("hidden")) {
       return;
     }
-    void loadPublicChatMessages();
+    if (publicChatPollInFlight) {
+      return;
+    }
+    publicChatPollInFlight = true;
+    void loadPublicChatMessages().finally(() => {
+      publicChatPollInFlight = false;
+    });
   }, 7000);
 }
 
@@ -2187,6 +2197,7 @@ function stopPublicChatPolling() {
     clearInterval(publicChatPollTimer);
     publicChatPollTimer = null;
   }
+  publicChatPollInFlight = false;
 }
 
 function setPublicProfileMessage(message) {
@@ -3575,78 +3586,87 @@ function stopDeviceNotificationPolling() {
     clearInterval(deviceNotificationPollTimer);
     deviceNotificationPollTimer = null;
   }
+  deviceNotificationPollInFlight = false;
 }
 
 async function pollDeviceNotificationsOnce() {
   if (!supabaseReady || !currentUser) {
     return;
   }
+  if (deviceNotificationPollInFlight) {
+    return;
+  }
+  deviceNotificationPollInFlight = true;
 
-  const friendIds = await loadFriendIdsForCurrentUser();
-  let profileMap = new Map();
+  try {
+    const friendIds = await loadFriendIdsForCurrentUser();
+    let profileMap = new Map();
 
-  if (friendIds.length > 0) {
-    const [profileRes, messageRes] = await Promise.all([
-      supabaseClient
-        .from("user_profiles")
-        .select("*")
-        .in("user_id", friendIds),
-      supabaseClient
-        .from("social_messages")
-        .select("id, sender_id, receiver_id, content, created_at")
-        .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
-        .order("created_at", { ascending: false })
-        .limit(400),
-    ]);
+    if (friendIds.length > 0) {
+      const [profileRes, messageRes] = await Promise.all([
+        supabaseClient
+          .from("user_profiles")
+          .select("*")
+          .in("user_id", friendIds),
+        supabaseClient
+          .from("social_messages")
+          .select("id, sender_id, receiver_id, content, created_at")
+          .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
+          .order("created_at", { ascending: false })
+          .limit(180),
+      ]);
 
-    profileMap = new Map(
-      (Array.isArray(profileRes?.data) ? profileRes.data : []).map((row) => {
+      profileMap = new Map(
+        (Array.isArray(profileRes?.data) ? profileRes.data : []).map((row) => {
+          const safe = normalizeProfile(row, null);
+          return [safe.user_id, safe];
+        })
+      );
+
+      if (!messageRes?.error) {
+        await trackAndNotifyIncomingMessages(
+          Array.isArray(messageRes.data) ? messageRes.data : [],
+          profileMap,
+          friendIds
+        );
+      }
+    }
+
+    const { data: requestRows, error: requestError } = await supabaseClient
+      .from("social_friend_requests")
+      .select("id, requester_id, addressee_id, status, created_at, updated_at")
+      .eq("addressee_id", currentUser.id)
+      .eq("status", "pending")
+      .order("updated_at", { ascending: false })
+      .limit(100);
+
+    if (requestError) {
+      return;
+    }
+
+    const safeRequests = Array.isArray(requestRows) ? requestRows : [];
+    if (safeRequests.length === 0) {
+      await trackAndNotifyFriendRequests([], new Map());
+      return;
+    }
+
+    const requesterIds = Array.from(new Set(safeRequests.map((item) => String(item.requester_id || "")).filter(Boolean)));
+    const { data: requesterProfiles } = await supabaseClient
+      .from("user_profiles")
+      .select("*")
+      .in("user_id", requesterIds);
+
+    const requestProfileMap = new Map(
+      (Array.isArray(requesterProfiles) ? requesterProfiles : []).map((row) => {
         const safe = normalizeProfile(row, null);
         return [safe.user_id, safe];
       })
     );
 
-    if (!messageRes?.error) {
-      await trackAndNotifyIncomingMessages(
-        Array.isArray(messageRes.data) ? messageRes.data : [],
-        profileMap,
-        friendIds
-      );
-    }
+    await trackAndNotifyFriendRequests(safeRequests, requestProfileMap);
+  } finally {
+    deviceNotificationPollInFlight = false;
   }
-
-  const { data: requestRows, error: requestError } = await supabaseClient
-    .from("social_friend_requests")
-    .select("id, requester_id, addressee_id, status, created_at, updated_at")
-    .eq("addressee_id", currentUser.id)
-    .eq("status", "pending")
-    .order("updated_at", { ascending: false })
-    .limit(100);
-
-  if (requestError) {
-    return;
-  }
-
-  const safeRequests = Array.isArray(requestRows) ? requestRows : [];
-  if (safeRequests.length === 0) {
-    await trackAndNotifyFriendRequests([], new Map());
-    return;
-  }
-
-  const requesterIds = Array.from(new Set(safeRequests.map((item) => String(item.requester_id || "")).filter(Boolean)));
-  const { data: requesterProfiles } = await supabaseClient
-    .from("user_profiles")
-    .select("*")
-    .in("user_id", requesterIds);
-
-  const requestProfileMap = new Map(
-    (Array.isArray(requesterProfiles) ? requesterProfiles : []).map((row) => {
-      const safe = normalizeProfile(row, null);
-      return [safe.user_id, safe];
-    })
-  );
-
-  await trackAndNotifyFriendRequests(safeRequests, requestProfileMap);
 }
 
 async function trackAndNotifyIncomingMessages(messageRows, profileMap, friendIds) {
@@ -4242,7 +4262,7 @@ async function loadInboxPageData() {
     .select("id, sender_id, receiver_id, content, created_at")
     .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
     .order("created_at", { ascending: false })
-    .limit(600);
+    .limit(250);
 
   if (messageError) {
     resetInboxUI(getFriendlySocialError(messageError, "Não foi possível carregar os chats."));
@@ -4383,11 +4403,13 @@ function startInboxPolling() {
   }
   stopInboxPolling();
   inboxPollTimer = window.setInterval(() => {
-    if (!document.body.contains(inboxPageRoot) || !inboxActiveUserId) {
+    if (!document.body.contains(inboxPageRoot) || !inboxActiveUserId || inboxPollInFlight) {
       return;
     }
-    void loadInboxMessages(inboxActiveUserId);
-    void loadInboxPageData();
+    inboxPollInFlight = true;
+    void loadInboxMessages(inboxActiveUserId).finally(() => {
+      inboxPollInFlight = false;
+    });
   }, 8000);
 }
 
@@ -4396,6 +4418,7 @@ function stopInboxPolling() {
     clearInterval(inboxPollTimer);
     inboxPollTimer = null;
   }
+  inboxPollInFlight = false;
 }
 
 async function loadFriendIdsForCurrentUser() {
@@ -4944,9 +4967,13 @@ function setupInteractionAnimations() {
 
 function setupInteractionPointerFeedback() {
   const releasePressedState = () => {
-    document.querySelectorAll(".interaction-press, .interaction-key-press").forEach((node) => {
+    if (activeInteractionNodes.size === 0) {
+      return;
+    }
+    activeInteractionNodes.forEach((node) => {
       node.classList.remove("interaction-press", "interaction-key-press");
     });
+    activeInteractionNodes.clear();
   };
 
   document.addEventListener("pointerdown", (event) => {
@@ -4956,6 +4983,7 @@ function setupInteractionPointerFeedback() {
     }
 
     target.classList.add("interaction-press");
+    activeInteractionNodes.add(target);
     createInteractionRipple(target, event);
   }, { passive: true });
 
@@ -4978,6 +5006,7 @@ function setupInteractionPointerFeedback() {
     }
 
     target.classList.add("interaction-key-press");
+    activeInteractionNodes.add(target);
     createInteractionRipple(target, null);
   });
 
@@ -4990,6 +5019,7 @@ function setupInteractionPointerFeedback() {
       return;
     }
     target.classList.remove("interaction-key-press");
+    activeInteractionNodes.delete(target);
   });
 }
 
@@ -5080,15 +5110,28 @@ function setupFeedbackMotionObserver() {
       }
 
       if (mutation.type === "attributes") {
-        const target = mutation.target;
-        if (target instanceof HTMLElement && target.matches(".feedback")) {
-          animateFeedbackNode(target);
+        if (mutation.target instanceof HTMLElement && mutation.target.matches(".feedback")) {
+          animateFeedbackNode(mutation.target);
         }
         return;
       }
 
       if (mutation.type === "childList") {
+        const targetFeedback = mutation.target instanceof Element
+          ? mutation.target.closest(".feedback")
+          : null;
+        if (targetFeedback instanceof HTMLElement) {
+          animateFeedbackNode(targetFeedback);
+        }
+
         mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.TEXT_NODE) {
+            const parent = node.parentElement?.closest?.(".feedback");
+            if (parent instanceof HTMLElement) {
+              animateFeedbackNode(parent);
+            }
+            return;
+          }
           if (!(node instanceof Element)) {
             return;
           }
@@ -5105,12 +5148,14 @@ function setupFeedbackMotionObserver() {
     });
   });
 
-  feedbackMotionObserver.observe(document.body, {
-    subtree: true,
-    childList: true,
-    characterData: true,
-    attributes: true,
-    attributeFilter: ["class"],
+  feedbackNodes.forEach((node) => {
+    feedbackMotionObserver.observe(node, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ["class"],
+    });
   });
 }
 
@@ -5121,8 +5166,14 @@ function animateFeedbackNode(node) {
 
   const message = String(node.textContent || "").trim();
   if (!message) {
+    delete node.dataset.feedbackSignature;
     return;
   }
+  const signature = `${node.classList.contains("error") ? "error" : "ok"}|${message}`;
+  if (node.dataset.feedbackSignature === signature) {
+    return;
+  }
+  node.dataset.feedbackSignature = signature;
 
   node.classList.remove("feedback-pop-ok", "feedback-pop-error");
   void node.offsetWidth;
