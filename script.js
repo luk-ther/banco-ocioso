@@ -3540,8 +3540,8 @@ async function showDeviceNotification(title, options = {}) {
 
   const safeTitle = String(title || "").trim() || "Banco Ocioso";
   const payload = {
-    badge: "img/favicon.png",
-    icon: "img/favicon.png",
+    badge: "img/logo.png",
+    icon: "img/logo.png",
     ...options,
   };
 
