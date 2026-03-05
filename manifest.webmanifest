@@ -33,5 +33,13 @@
   "categories": [
     "finance",
     "productivity"
-  ]
+  ],
+  "related_applications": [
+    {
+      "platform": "play",
+      "id": "com.lukther.bancoocioso",
+      "url": "https://play.google.com/store/apps/details?id=com.lukther.bancoocioso"
+    }
+  ],
+  "prefer_related_applications": false
 }

@@ -87,6 +87,9 @@ const PRESENCE_STATUS_LABELS = {
   offline: "Offline",
 };
 const PRESENCE_ONLINE_WINDOW_MS = 3 * 60 * 1000;
+const APP_DOWNLOAD_FILE = "banco-ocioso-V.01.00.apk";
+const APP_DOWNLOAD_STORAGE_KEY = "bo_app_downloaded_v0100";
+const APP_PACKAGE_ID = "com.lukther.bancoocioso";
 
 const revealNodes = document.querySelectorAll(".reveal");
 const rulesCheckbox = document.getElementById("confirmRules");
@@ -118,6 +121,7 @@ const logoutBtn = document.getElementById("logoutBtn");
 const menuToggle = document.getElementById("menuToggle");
 const mainNav = document.getElementById("mainNav");
 const authToggle = document.getElementById("authToggle");
+const appDownloadCta = document.getElementById("appDownloadCta");
 const authPanel = document.getElementById("authPanel");
 const authClose = document.getElementById("authClose");
 const bottomNotifyBtn = document.getElementById("bottomNotifyBtn");
@@ -284,6 +288,7 @@ const INTERACTION_TARGET_SELECTOR = [
 let feedbackMotionObserver = null;
 let interactionInsertObserver = null;
 const activeInteractionNodes = new Set();
+let appDownloadCtaNode = appDownloadCta;
 
 applyMotionPreferenceFromStorage();
 
@@ -379,6 +384,7 @@ revealNodes.forEach((node, index) => {
 setupShortcutScroll();
 setupMobileMenu();
 setupAuthWidget();
+setupAppDownloadCta();
 setupBottomNav();
 setupInboxUI();
 setupNotificationsUI();
@@ -4675,6 +4681,137 @@ function animateVaultCards() {
     void card.offsetWidth;
     card.classList.add("card-enter");
   });
+}
+
+function setupAppDownloadCta() {
+  const authWidget = document.querySelector(".auth-widget");
+  const loginShell = document.querySelector(".login-shell");
+
+  if (!authWidget && !loginShell) {
+    return;
+  }
+
+  let node = document.getElementById("appDownloadCta");
+
+  if (!(node instanceof HTMLAnchorElement)) {
+    node = document.createElement("a");
+    node.id = "appDownloadCta";
+    node.className = "app-download-cta hidden";
+    node.href = APP_DOWNLOAD_FILE;
+    node.download = APP_DOWNLOAD_FILE;
+    node.setAttribute("aria-label", "Baixar aplicativo Android");
+    node.setAttribute("title", "Baixar aplicativo Android");
+    node.innerHTML = `
+      <span class="app-download-icon" aria-hidden="true">⬇</span>
+      <span class="app-download-text">Baixar app</span>
+    `;
+  }
+
+  if (authWidget) {
+    const toggle = authWidget.querySelector(".auth-toggle");
+    if (toggle) {
+      authWidget.insertBefore(node, toggle);
+    } else {
+      authWidget.appendChild(node);
+    }
+    node.classList.remove("login-download-cta");
+  } else if (loginShell) {
+    const brand = loginShell.querySelector(".login-brand");
+    if (brand && brand.parentNode === loginShell) {
+      loginShell.insertBefore(node, brand.nextSibling);
+    } else {
+      loginShell.prepend(node);
+    }
+    node.classList.add("login-download-cta");
+  }
+
+  appDownloadCtaNode = node;
+  appDownloadCtaNode.addEventListener("click", onAppDownloadCtaClick);
+  void refreshAppDownloadCtaVisibility();
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      void refreshAppDownloadCtaVisibility();
+    }
+  });
+  window.addEventListener("focus", () => {
+    void refreshAppDownloadCtaVisibility();
+  });
+}
+
+function onAppDownloadCtaClick() {
+  try {
+    localStorage.setItem(APP_DOWNLOAD_STORAGE_KEY, "1");
+  } catch (_error) {
+    // Sem bloqueio se localStorage não estiver disponível.
+  }
+  window.setTimeout(() => {
+    void refreshAppDownloadCtaVisibility();
+  }, 900);
+}
+
+function hasMarkedAppDownload() {
+  try {
+    return localStorage.getItem(APP_DOWNLOAD_STORAGE_KEY) === "1";
+  } catch (_error) {
+    return false;
+  }
+}
+
+function isInstalledAppContext() {
+  const fromAndroidAppReferrer = String(document.referrer || "").startsWith("android-app://");
+  const isStandalone = (typeof window.matchMedia === "function" && (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.matchMedia("(display-mode: fullscreen)").matches ||
+    window.matchMedia("(display-mode: minimal-ui)").matches
+  )) || window.navigator.standalone === true;
+  return Boolean(fromAndroidAppReferrer || isStandalone);
+}
+
+function isIOSDevice() {
+  const ua = String(window.navigator.userAgent || "").toLowerCase();
+  return /iphone|ipad|ipod/.test(ua);
+}
+
+async function hasInstalledRelatedAndroidApp() {
+  if (typeof navigator.getInstalledRelatedApps !== "function") {
+    return false;
+  }
+
+  try {
+    const apps = await navigator.getInstalledRelatedApps();
+    if (!Array.isArray(apps)) {
+      return false;
+    }
+
+    return apps.some((app) => {
+      const id = String(app?.id || "").toLowerCase();
+      const url = String(app?.url || "").toLowerCase();
+      return id === APP_PACKAGE_ID || id.includes(APP_PACKAGE_ID) || url.includes(APP_PACKAGE_ID);
+    });
+  } catch (_error) {
+    return false;
+  }
+}
+
+async function refreshAppDownloadCtaVisibility() {
+  if (!(appDownloadCtaNode instanceof HTMLElement)) {
+    return;
+  }
+
+  if (isIOSDevice()) {
+    appDownloadCtaNode.classList.add("hidden");
+    appDownloadCtaNode.setAttribute("aria-hidden", "true");
+    return;
+  }
+
+  const hiddenBecauseInstalledContext = isInstalledAppContext();
+  const hiddenBecauseLocalDownload = hasMarkedAppDownload();
+  const hiddenBecauseRelatedApp = await hasInstalledRelatedAndroidApp();
+
+  const shouldHide = hiddenBecauseInstalledContext || hiddenBecauseLocalDownload || hiddenBecauseRelatedApp;
+  appDownloadCtaNode.classList.toggle("hidden", shouldHide);
+  appDownloadCtaNode.setAttribute("aria-hidden", String(shouldHide));
 }
 
 function setupAuthWidget() {

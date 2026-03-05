@@ -1264,7 +1264,44 @@ body.ui-boot main {
   position: relative;
   z-index: 25;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   margin-left: 0.6rem;
+}
+
+.app-download-cta {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  min-height: 36px;
+  padding: 0.42rem 0.84rem;
+  font-size: 0.84rem;
+  line-height: 1;
+  font-weight: 800;
+  color: var(--text);
+  background: linear-gradient(135deg, rgba(12, 224, 255, 0.18), rgba(87, 255, 190, 0.12));
+  box-shadow: 0 10px 24px rgba(12, 224, 255, 0.15);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.app-download-cta:hover {
+  transform: translateY(-2px);
+  border-color: rgba(87, 255, 190, 0.45);
+  box-shadow: 0 14px 26px rgba(87, 255, 190, 0.24);
+}
+
+.app-download-icon {
+  font-size: 0.9rem;
+}
+
+.login-download-cta {
+  width: fit-content;
+  margin: 0.45rem 0 0.75rem auto;
 }
 
 .auth-toggle {
@@ -2577,6 +2614,21 @@ select:focus {
     grid-column: auto;
     justify-self: end;
     align-self: center;
+    gap: 0.36rem;
+  }
+
+  .app-download-cta {
+    min-height: 34px;
+    padding: 0.38rem 0.64rem;
+    font-size: 0.78rem;
+  }
+
+  .app-download-text {
+    display: none;
+  }
+
+  .app-download-icon {
+    font-size: 0.94rem;
   }
 
   .auth-toggle {
