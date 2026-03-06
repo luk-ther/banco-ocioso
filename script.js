@@ -11,6 +11,7 @@
 const ONBOARDING_STORAGE_KEY = "bo_onboarding_seen_v1";
 const ONBOARDING_PAGE = "onboarding.html";
 const LOGIN_PAGE = "login.html";
+const PROFILE_PAGE = "perfil.html";
 const AUTH_REQUIRED_PAGES = new Set([
   "index.html",
   "chats.html",
@@ -337,6 +338,25 @@ applyMotionPreferenceFromStorage();
 
 function getCurrentPageName() {
   return (window.location.pathname.split("/").pop() || "index.html").toLowerCase();
+}
+
+function isCompactAppViewport() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return false;
+  }
+  return window.matchMedia("(max-width: 960px)").matches;
+}
+
+function shouldRedirectAuthToggleToProfile() {
+  return isCompactAppViewport() && getCurrentPageName() !== PROFILE_PAGE;
+}
+
+function redirectAuthToggleToProfile() {
+  if (!shouldRedirectAuthToggleToProfile()) {
+    return false;
+  }
+  window.location.assign(PROFILE_PAGE);
+  return true;
 }
 
 function hasSeenOnboarding() {
@@ -3654,6 +3674,9 @@ function setupBottomNav() {
   if (bottomAuthToggle) {
     bottomAuthToggle.addEventListener("click", (event) => {
       event.preventDefault();
+      if (redirectAuthToggleToProfile()) {
+        return;
+      }
       if (!authPanel || !authToggle) {
         return;
       }
@@ -5316,6 +5339,9 @@ function setupAuthWidget() {
   lockAuthToggleWidth();
 
   authToggle.addEventListener("click", () => {
+    if (redirectAuthToggleToProfile()) {
+      return;
+    }
     const isOpen = !authPanel.classList.contains("is-open");
     setAuthPanelState(isOpen);
   });
