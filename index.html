@@ -3,9 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Banco Ocioso | Cofres</title>
+  <title>Banco Ocioso</title>
   <meta name="description" content="Banco Ocioso: área de cofres para registrar metas e aportes com foco em autocontrole." />
   <meta name="theme-color" content="#000000" />
+  <meta name="google-site-verification" content="--NrU3AOJypb3s5IiwOKW8esZflYbFOYIK0_5mh947M" />
+  <script>
+    (() => {
+      try {
+        document.documentElement.classList.add(
+          sessionStorage.getItem("bo_initial_loading_seen_v1") === "1" ? "app-shell-ready" : "app-shell-pending"
+        );
+      } catch (_error) {
+        document.documentElement.classList.add("app-shell-pending");
+      }
+    })();
+  </script>
   <link rel="icon" type="image/png" href="img/logo.png" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -52,7 +64,7 @@
             <div class="field-grid auth-grid">
               <label>
                 E-mail
-                <input id="loginEmail" type="email" placeholder="voce@email.com" required />
+                <input id="loginEmail" type="email" placeholder="voce@dominio.com" required />
               </label>
               <label>
                 Senha
@@ -66,7 +78,7 @@
             <div class="field-grid auth-grid">
               <label>
                 E-mail
-                <input id="registerEmail" type="email" placeholder="voce@email.com" required />
+                <input id="registerEmail" type="email" placeholder="voce@dominio.com" required />
               </label>
               <label>
                 Nome

@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Banco Ocioso | Notificações</title>
   <meta name="description" content="Veja suas notificações e pedidos de amizade no Banco Ocioso." />
+  <script>
+    (() => {
+      try {
+        document.documentElement.classList.add(
+          sessionStorage.getItem("bo_initial_loading_seen_v1") === "1" ? "app-shell-ready" : "app-shell-pending"
+        );
+      } catch (_error) {
+        document.documentElement.classList.add("app-shell-pending");
+      }
+    })();
+  </script>
   <link rel="icon" type="image/png" href="img/logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

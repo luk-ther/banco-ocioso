@@ -11,12 +11,15 @@ create table if not exists public.vaults (
 create table if not exists public.user_profiles (
   user_id uuid primary key references auth.users (id) on delete cascade,
   display_name text not null check (char_length(display_name) between 1 and 32),
-  theme_key text not null default 'neon' check (theme_key in ('neon', 'ocean', 'sunset', 'graphite', 'aurora', 'midnight', 'ember', 'forest', 'royal', 'ruby', 'ice', 'sand', 'violet', 'carbon')),
+  theme_key text not null default 'neon' check (theme_key in ('neon', 'ocean', 'sunset', 'graphite', 'aurora', 'midnight', 'ember', 'forest', 'royal', 'ruby', 'ice', 'sand', 'violet', 'carbon', 'linithy')),
   accent_color text not null default '#0ce0ff' check (accent_color ~ '^#[0-9A-Fa-f]{6}$'),
   name_font text not null default 'sora' check (name_font in ('sora', 'manrope', 'space', 'poppins', 'montserrat', 'nunito', 'raleway', 'oswald', 'lora', 'merriweather', 'playfair', 'fira', 'dmsans', 'bebas')),
   decoration text not null default 'glow' check (decoration in ('glow', 'ring', 'spark', 'pulse', 'grid', 'stars', 'stripes', 'dots')),
   presence_status text not null default 'online' check (presence_status in ('online', 'dnd', 'away', 'offline')),
   last_seen_at timestamptz not null default now(),
+  is_verified boolean not null default false,
+  owned_badges text[] not null default array['first_users'],
+  equipped_badges text[] not null default array['first_users'],
   allow_friend_requests boolean not null default true,
   allow_followers boolean not null default true,
   show_in_ranking boolean not null default true,
@@ -71,13 +74,16 @@ alter table public.user_profiles add column if not exists bio text not null defa
 alter table public.user_profiles add column if not exists banner_url text not null default '';
 alter table public.user_profiles add column if not exists presence_status text not null default 'online';
 alter table public.user_profiles add column if not exists last_seen_at timestamptz not null default now();
+alter table public.user_profiles add column if not exists is_verified boolean not null default false;
+alter table public.user_profiles add column if not exists owned_badges text[] not null default array['first_users'];
+alter table public.user_profiles add column if not exists equipped_badges text[] not null default array['first_users'];
 alter table public.user_profiles add column if not exists allow_friend_requests boolean not null default true;
 alter table public.user_profiles add column if not exists allow_followers boolean not null default true;
 alter table public.user_profiles add column if not exists show_in_ranking boolean not null default true;
 
 alter table public.user_profiles drop constraint if exists user_profiles_theme_key_check;
 alter table public.user_profiles add constraint user_profiles_theme_key_check
-check (theme_key in ('neon', 'ocean', 'sunset', 'graphite', 'aurora', 'midnight', 'ember', 'forest', 'royal', 'ruby', 'ice', 'sand', 'violet', 'carbon'));
+check (theme_key in ('neon', 'ocean', 'sunset', 'graphite', 'aurora', 'midnight', 'ember', 'forest', 'royal', 'ruby', 'ice', 'sand', 'violet', 'carbon', 'linithy'));
 
 alter table public.user_profiles drop constraint if exists user_profiles_name_font_check;
 alter table public.user_profiles add constraint user_profiles_name_font_check
@@ -101,6 +107,108 @@ check (char_length(bio) <= 180);
 alter table public.user_profiles drop constraint if exists user_profiles_banner_url_check;
 alter table public.user_profiles add constraint user_profiles_banner_url_check
 check (char_length(banner_url) <= 560000);
+
+create or replace function public.unique_text_array(items text[])
+returns text[]
+language sql
+immutable
+as $$
+  select coalesce(array_agg(distinct item order by item), array[]::text[])
+  from unnest(coalesce(items, array[]::text[])) as item
+  where nullif(trim(item), '') is not null
+$$;
+
+create or replace function public.sync_user_profile_verified_badge()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  has_verified_email boolean;
+  was_verified boolean;
+begin
+  select exists (
+    select 1
+    from auth.users au
+    where au.id = new.user_id
+      and lower(coalesce(au.email, '')) = 'luktheer@gmail.com'
+  )
+  into has_verified_email;
+
+  was_verified := case
+    when tg_op = 'UPDATE' then coalesce(old.is_verified, false)
+    else false
+  end;
+
+  new.owned_badges := public.unique_text_array(array_append(coalesce(new.owned_badges, array[]::text[]), 'first_users'));
+  new.is_verified := was_verified or has_verified_email;
+
+  if new.is_verified then
+    new.owned_badges := public.unique_text_array(array_append(new.owned_badges, 'verified'));
+  end if;
+
+  new.equipped_badges := public.unique_text_array(
+    array(
+      select badge
+      from unnest(coalesce(new.equipped_badges, array[]::text[])) as badge
+      where badge = any(new.owned_badges)
+    )
+  );
+
+  if coalesce(array_length(new.equipped_badges, 1), 0) = 0 then
+    new.equipped_badges := array['first_users'];
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists user_profiles_sync_verified_badge on public.user_profiles;
+create trigger user_profiles_sync_verified_badge
+before insert or update on public.user_profiles
+for each row execute function public.sync_user_profile_verified_badge();
+
+update public.user_profiles up
+set is_verified = true
+where exists (
+  select 1
+  from auth.users au
+  where au.id = up.user_id
+    and lower(coalesce(au.email, '')) = 'luktheer@gmail.com'
+);
+
+update public.user_profiles
+set owned_badges = public.unique_text_array(array_append(coalesce(owned_badges, array[]::text[]), 'first_users'));
+
+update public.user_profiles up
+set owned_badges = public.unique_text_array(array_append(coalesce(up.owned_badges, array[]::text[]), 'verified')),
+    is_verified = true
+where exists (
+  select 1
+  from auth.users au
+  where au.id = up.user_id
+    and lower(coalesce(au.email, '')) = 'luktheer@gmail.com'
+);
+
+update public.user_profiles
+set equipped_badges = case
+  when coalesce(array_length(filtered.badges, 1), 0) = 0 then array['first_users']
+  else filtered.badges
+end
+from (
+  select
+    up.user_id,
+    public.unique_text_array(
+      array(
+        select badge
+        from unnest(coalesce(up.equipped_badges, array[]::text[])) as badge
+        where badge = any(coalesce(up.owned_badges, array[]::text[]))
+      )
+    ) as badges
+  from public.user_profiles up
+) as filtered
+where filtered.user_id = public.user_profiles.user_id;
 
 alter table public.vaults enable row level security;
 alter table public.user_profiles enable row level security;

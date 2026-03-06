@@ -36,6 +36,7 @@ const PROFILE_THEME_KEYS = [
   "sand",
   "violet",
   "carbon",
+  "linithy",
 ];
 const PROFILE_DECORATION_KEYS = [
   "glow",
@@ -62,7 +63,35 @@ const PROFILE_THEME_LABELS = {
   sand: "Sand",
   violet: "Violet",
   carbon: "Carbon",
+  linithy: "Linithy Theme",
 };
+const PROFILE_BADGE_RARITY_META = {
+  common: { label: "Comum", accent: "#b7c0d1" },
+  uncommon: { label: "Incomum", accent: "#72ef9a" },
+  rare: { label: "Rara", accent: "#68d8ff" },
+  epic: { label: "Épica", accent: "#d68bff" },
+  mythic: { label: "Mítica", accent: "#ffb86b" },
+  ultra_mythic: { label: "Ultra-mítica", accent: "#f5f7fb" },
+};
+const PROFILE_BADGE_DEFINITIONS = {
+  verified: {
+    key: "verified",
+    label: "Verificado",
+    rarity: "ultra_mythic",
+    mark: "V",
+    description: "Conta autenticada pela equipe do Banco Ocioso.",
+  },
+  first_users: {
+    key: "first_users",
+    label: "Primeiros usuários",
+    rarity: "rare",
+    mark: "01",
+    description: "Insígnia reservada para os primeiros usuários da plataforma.",
+  },
+};
+const PROFILE_BADGE_KEYS = Object.keys(PROFILE_BADGE_DEFINITIONS);
+const DEFAULT_OWNED_BADGE_KEYS = ["first_users"];
+const DEFAULT_EQUIPPED_BADGE_KEYS = ["first_users"];
 const PROFILE_NAME_FONT_KEYS = [
   "sora",
   "manrope",
@@ -80,6 +109,8 @@ const PROFILE_NAME_FONT_KEYS = [
   "bebas",
 ];
 const PRESENCE_STATUS_KEYS = ["online", "dnd", "away", "offline"];
+const VERIFIED_BADGE_EMAILS = new Set(["luktheer@gmail.com"]);
+const VERIFIED_BADGE_LABEL = "Verificado";
 const PRESENCE_STATUS_LABELS = {
   online: "Online",
   dnd: "Nao perturbe",
@@ -87,9 +118,7 @@ const PRESENCE_STATUS_LABELS = {
   offline: "Offline",
 };
 const PRESENCE_ONLINE_WINDOW_MS = 3 * 60 * 1000;
-const APP_DOWNLOAD_FILE = "banco-ocioso-V.01.00.apk";
-const APP_DOWNLOAD_STORAGE_KEY = "bo_app_downloaded_v0100";
-const APP_PACKAGE_ID = "com.lukther.bancoocioso";
+const APP_INSTALL_CTA_LABEL = "Instalar app";
 
 const revealNodes = document.querySelectorAll(".reveal");
 const rulesCheckbox = document.getElementById("confirmRules");
@@ -174,6 +203,7 @@ const profileThemeSelect = document.getElementById("profileTheme");
 const profileAccentColorInput = document.getElementById("profileAccentColor");
 const profileNameFontSelect = document.getElementById("profileNameFont");
 const profileDecorationSelect = document.getElementById("profileDecoration");
+const profileBadgePicker = document.getElementById("profileBadgePicker");
 const profileBioInput = document.getElementById("profileBio");
 const profileAvatarFileInput = document.getElementById("profileAvatarFile");
 const profileRemoveAvatarBtn = document.getElementById("profileRemoveAvatarBtn");
@@ -183,6 +213,7 @@ const profileFeedback = document.getElementById("profileFeedback");
 const profilePreviewCard = document.getElementById("profilePreviewCard");
 const profilePreviewAvatar = document.getElementById("profilePreviewAvatar");
 const profilePreviewName = document.getElementById("profilePreviewName");
+const profilePreviewBadges = document.getElementById("profilePreviewBadges");
 const profilePreviewTagline = document.getElementById("profilePreviewTagline");
 const profilePreviewMeta = document.getElementById("profilePreviewMeta");
 const rankingList = document.getElementById("rankingList");
@@ -191,6 +222,7 @@ const rankingProfileSheet = document.getElementById("rankingProfileSheet");
 const rankingProfileClose = document.getElementById("rankingProfileClose");
 const rankingProfileAvatar = document.getElementById("rankingProfileAvatar");
 const rankingProfileName = document.getElementById("rankingProfileName");
+const rankingProfileBadges = document.getElementById("rankingProfileBadges");
 const rankingProfileTheme = document.getElementById("rankingProfileTheme");
 const rankingProfileGoals = document.getElementById("rankingProfileGoals");
 const rankingProfileBio = document.getElementById("rankingProfileBio");
@@ -201,6 +233,7 @@ const publicProfileHeaderCopy = document.getElementById("publicProfileHeaderCopy
 const publicProfileCard = document.getElementById("publicProfileCard");
 const publicProfileAvatar = document.getElementById("publicProfileAvatar");
 const publicProfileName = document.getElementById("publicProfileName");
+const publicProfileBadges = document.getElementById("publicProfileBadges");
 const publicProfileTagline = document.getElementById("publicProfileTagline");
 const publicProfileMeta = document.getElementById("publicProfileMeta");
 const publicFollowersCount = document.getElementById("publicFollowersCount");
@@ -254,10 +287,19 @@ let presenceHeartbeatTimer = null;
 let presenceVisibilityBound = false;
 let presencePagehideBound = false;
 let publicChatPollInFlight = false;
+let appLoadingNode = null;
+let appLoadingMessageNode = null;
+let appLoadingHideTimer = null;
+let appLoadingStartedAt = 0;
+let appLoadingVisible = false;
+let deferredInstallPrompt = null;
+let installPromptEventsBound = false;
 const loadedProfileFonts = new Set();
 
 const DEVICE_NOTIFY_PREF_KEY = "bo_device_notifications_enabled";
 const PRESENCE_PREFERRED_STATUS_PREFIX = "bo_presence_preferred_status_";
+const APP_LOADING_MIN_VISIBLE_MS = 320;
+const APP_LOADING_SESSION_KEY = "bo_initial_loading_seen_v1";
 const SYSTEM_PREF_KEYS = {
   notifyMessages: "bo_notify_messages_enabled",
   notifyRequests: "bo_notify_friend_requests_enabled",
@@ -414,101 +456,205 @@ function runWhenIdle(task, timeout = 1200) {
   window.setTimeout(task, Math.min(Math.max(timeout, 250), 1800));
 }
 
+function getAppLoadingMessage(pageName = getCurrentPageName(), hasUser = Boolean(currentUser)) {
+  const page = String(pageName || "").toLowerCase();
+  if (!hasUser) {
+    return page === LOGIN_PAGE ? "Validando sua sessao..." : "Preparando Banco Ocioso...";
+  }
+
+  switch (page) {
+    case "index.html":
+      return "Sincronizando seus cofres...";
+    case "chats.html":
+      return "Carregando suas conversas...";
+    case "notificacoes.html":
+      return "Atualizando suas notificacoes...";
+    case "perfil.html":
+    case "personalizacao.html":
+      return "Montando seu perfil...";
+    case "ranking.html":
+      return "Buscando o ranking global...";
+    case "configuracoes.html":
+      return "Aplicando suas configuracoes...";
+    case "perfil-publico.html":
+      return "Abrindo o perfil publico...";
+    default:
+      return "Sincronizando sua conta...";
+  }
+}
+
+function shouldShowInitialLoadingScreen() {
+  try {
+    return sessionStorage.getItem(APP_LOADING_SESSION_KEY) !== "1";
+  } catch (_error) {
+    return true;
+  }
+}
+
+function markInitialLoadingSeen() {
+  try {
+    sessionStorage.setItem(APP_LOADING_SESSION_KEY, "1");
+  } catch (_error) {
+    // Sem bloqueio se o storage estiver indisponivel.
+  }
+}
+
+function ensureAppLoadingScreen() {
+  if (appLoadingNode || !document.body) {
+    return;
+  }
+
+  const node = document.createElement("div");
+  node.className = "app-loading-screen";
+  node.setAttribute("aria-hidden", "true");
+  node.innerHTML = `
+    <div class="app-loading-card" role="status" aria-live="polite">
+      <div class="app-loading-brand">
+        <span class="app-loading-brand-dot" aria-hidden="true"></span>
+        <strong>Banco Ocioso</strong>
+      </div>
+      <div class="app-loading-bars" aria-hidden="true">
+        <span class="app-loading-bar"></span>
+        <span class="app-loading-bar"></span>
+        <span class="app-loading-bar"></span>
+      </div>
+      <p class="app-loading-title">Carregando sua conta</p>
+      <p class="app-loading-message">Preparando seus dados...</p>
+    </div>
+  `;
+
+  document.body.appendChild(node);
+  appLoadingNode = node;
+  appLoadingMessageNode = node.querySelector(".app-loading-message");
+}
+
+function showAppLoading(message = getAppLoadingMessage()) {
+  if (!document.body) {
+    return;
+  }
+
+  const shouldOpenLoading = appLoadingVisible || shouldShowInitialLoadingScreen();
+  if (!shouldOpenLoading) {
+    hideAppLoading(true);
+    return;
+  }
+
+  if (!appLoadingVisible) {
+    markInitialLoadingSeen();
+  }
+
+  ensureAppLoadingScreen();
+
+  if (appLoadingHideTimer) {
+    clearTimeout(appLoadingHideTimer);
+    appLoadingHideTimer = null;
+  }
+
+  if (appLoadingMessageNode) {
+    appLoadingMessageNode.textContent = message;
+  }
+
+  document.documentElement.classList.add("app-shell-pending");
+  document.documentElement.classList.remove("app-shell-ready");
+  document.body.classList.add("app-loading-active");
+  document.body.classList.remove("app-shell-ready");
+  document.body.setAttribute("aria-busy", "true");
+
+  if (appLoadingNode) {
+    appLoadingNode.classList.remove("is-hidden");
+    appLoadingNode.setAttribute("aria-hidden", "false");
+  }
+
+  appLoadingVisible = true;
+  appLoadingStartedAt = Date.now();
+}
+
+function hideAppLoading(force = false) {
+  if (!document.body) {
+    return;
+  }
+
+  const finish = () => {
+    document.documentElement.classList.remove("app-shell-pending");
+    document.documentElement.classList.add("app-shell-ready");
+    document.body.classList.remove("app-loading-active", "app-shell-pending");
+    document.body.classList.add("app-shell-ready");
+    document.body.removeAttribute("aria-busy");
+
+    if (appLoadingNode) {
+      appLoadingNode.classList.add("is-hidden");
+      appLoadingNode.setAttribute("aria-hidden", "true");
+    }
+
+    appLoadingVisible = false;
+    appLoadingHideTimer = null;
+  };
+
+  if (!appLoadingVisible || force) {
+    finish();
+    return;
+  }
+
+  const elapsed = Date.now() - appLoadingStartedAt;
+  const delay = Math.max(APP_LOADING_MIN_VISIBLE_MS - elapsed, 0);
+  appLoadingHideTimer = window.setTimeout(finish, delay);
+}
+
 async function init() {
   const currentPage = getCurrentPageName();
-  supabaseReady = initSupabase();
+  let shouldHideLoading = true;
+  showAppLoading(getAppLoadingMessage(currentPage, false));
 
-  if (!supabaseReady) {
-    stopDeviceNotificationPolling();
-    stopPresenceHeartbeat();
-    resetDeviceNotificationCaches();
-    setAuthError("Configure SUPABASE_URL e SUPABASE_ANON_KEY em supabase-config.js.");
-    disableAuthForms();
-    resetProfileUI();
-    updateVaultAccessState();
-    renderVaults();
-    renderRanking([]);
-    resetPublicProfileUI("Faça login e execute o SQL social para usar perfis públicos completos.");
-    resetInboxUI("Configure o Supabase para usar chats.");
-    resetNotificationsUI("Configure o Supabase para usar notificações.");
-    resetSettingsUI("Configure o Supabase para usar as configurações da conta.", "");
-    updateProfileHubUI();
-    return;
-  }
+  try {
+    supabaseReady = initSupabase();
 
-  const { data, error } = await supabaseClient.auth.getSession();
-  if (error) {
-    setAuthError(getFriendlyAuthError(error));
-  }
-
-  currentUser = data?.session?.user || null;
-
-  if (currentPage === LOGIN_PAGE) {
-    if (currentUser) {
-      redirectAfterAuth();
+    if (!supabaseReady) {
+      stopDeviceNotificationPolling();
+      stopPresenceHeartbeat();
+      resetDeviceNotificationCaches();
+      setAuthError("Configure SUPABASE_URL e SUPABASE_ANON_KEY em supabase-config.js.");
+      disableAuthForms();
+      resetProfileUI();
+      updateVaultAccessState();
+      renderVaults();
+      renderRanking([]);
+      resetPublicProfileUI("Faça login e execute o SQL social para usar perfis publicos completos.");
+      resetInboxUI("Configure o Supabase para usar chats.");
+      resetNotificationsUI("Configure o Supabase para usar notificacoes.");
+      resetSettingsUI("Configure o Supabase para usar as configuracoes da conta.", "");
+      updateProfileHubUI();
       return;
     }
-    resetProfileUI();
-    updateAuthUI();
-    updateProfileHubUI();
-    return;
-  }
 
-  if (AUTH_REQUIRED_PAGES.has(currentPage)) {
-    if (!currentUser) {
-      redirectToLoginPage();
-      return;
+    const { data, error } = await supabaseClient.auth.getSession();
+    if (error) {
+      setAuthError(getFriendlyAuthError(error));
     }
-    if (!hasSeenOnboarding()) {
-      redirectToOnboardingWithCurrentDestination();
-      return;
-    }
-  }
 
-  if (!currentUser) {
-    resetDeviceNotificationCaches();
-    stopDeviceNotificationPolling();
-    stopPresenceHeartbeat();
-  }
+    currentUser = data?.session?.user || null;
+    showAppLoading(getAppLoadingMessage(currentPage, Boolean(currentUser)));
 
-  if (currentUser) {
-    runWhenIdle(() => {
-      void setupDeviceNotifications();
-    }, 1100);
-    await loadVaultsFromDb();
-    await loadUserProfile();
-  } else {
-    resetProfileUI();
-  }
-  await loadGlobalRanking();
-  await loadPublicProfilePageData();
-  await loadInboxPageData();
-  await loadNotificationsPageData();
-  await loadSettingsPageData();
-  if (currentUser) {
-    startPresenceHeartbeat();
-    await pollDeviceNotificationsOnce();
-    startDeviceNotificationPolling();
-  }
-  updateProfileHubUI();
-
-  supabaseClient.auth.onAuthStateChange(async (_event, session) => {
-    const activePage = getCurrentPageName();
-    currentUser = session?.user || null;
-
-    if (activePage === LOGIN_PAGE) {
+    if (currentPage === LOGIN_PAGE) {
       if (currentUser) {
+        shouldHideLoading = false;
+        showAppLoading("Abrindo sua conta...");
         redirectAfterAuth();
+        return;
       }
+      resetProfileUI();
+      updateAuthUI();
+      updateProfileHubUI();
       return;
     }
 
-    if (AUTH_REQUIRED_PAGES.has(activePage)) {
+    if (AUTH_REQUIRED_PAGES.has(currentPage)) {
       if (!currentUser) {
+        shouldHideLoading = false;
         redirectToLoginPage();
         return;
       }
       if (!hasSeenOnboarding()) {
+        shouldHideLoading = false;
         redirectToOnboardingWithCurrentDestination();
         return;
       }
@@ -527,8 +673,6 @@ async function init() {
       await loadVaultsFromDb();
       await loadUserProfile();
     } else {
-      vaults.splice(0, vaults.length);
-      currentProfile = null;
       resetProfileUI();
     }
     await loadGlobalRanking();
@@ -541,16 +685,95 @@ async function init() {
       await pollDeviceNotificationsOnce();
       startDeviceNotificationPolling();
     }
+    updateProfileHubUI();
+
+    supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+      if (_event === "INITIAL_SESSION" || _event === "TOKEN_REFRESHED") {
+        return;
+      }
+
+      const activePage = getCurrentPageName();
+      let shouldHideSessionLoading = true;
+      showAppLoading(getAppLoadingMessage(activePage, Boolean(session?.user)));
+
+      try {
+        currentUser = session?.user || null;
+
+        if (activePage === LOGIN_PAGE) {
+          if (currentUser) {
+            shouldHideSessionLoading = false;
+            showAppLoading("Abrindo sua conta...");
+            redirectAfterAuth();
+          }
+          return;
+        }
+
+        if (AUTH_REQUIRED_PAGES.has(activePage)) {
+          if (!currentUser) {
+            shouldHideSessionLoading = false;
+            redirectToLoginPage();
+            return;
+          }
+          if (!hasSeenOnboarding()) {
+            shouldHideSessionLoading = false;
+            redirectToOnboardingWithCurrentDestination();
+            return;
+          }
+        }
+
+        if (!currentUser) {
+          resetDeviceNotificationCaches();
+          stopDeviceNotificationPolling();
+          stopPresenceHeartbeat();
+        }
+
+        if (currentUser) {
+          runWhenIdle(() => {
+            void setupDeviceNotifications();
+          }, 1100);
+          await loadVaultsFromDb();
+          await loadUserProfile();
+        } else {
+          vaults.splice(0, vaults.length);
+          currentProfile = null;
+          resetProfileUI();
+        }
+        await loadGlobalRanking();
+        await loadPublicProfilePageData();
+        await loadInboxPageData();
+        await loadNotificationsPageData();
+        await loadSettingsPageData();
+        if (currentUser) {
+          startPresenceHeartbeat();
+          await pollDeviceNotificationsOnce();
+          startDeviceNotificationPolling();
+        }
+        updateAuthUI();
+        updateProfileHubUI();
+        updateVaultAccessState();
+        renderVaults();
+      } catch (error) {
+        console.error("Falha ao atualizar a sessao do app.", error);
+        showBottomNotice("Nao foi possivel atualizar seus dados agora.");
+      } finally {
+        if (shouldHideSessionLoading) {
+          hideAppLoading();
+        }
+      }
+    });
+
     updateAuthUI();
     updateProfileHubUI();
     updateVaultAccessState();
     renderVaults();
-  });
-
-  updateAuthUI();
-  updateProfileHubUI();
-  updateVaultAccessState();
-  renderVaults();
+  } catch (error) {
+    console.error("Falha ao iniciar o Banco Ocioso.", error);
+    showBottomNotice("Nao foi possivel carregar tudo agora. Recarregue a pagina.");
+  } finally {
+    if (shouldHideLoading) {
+      hideAppLoading();
+    }
+  }
 }
 
 function initSupabase() {
@@ -618,6 +841,7 @@ function setupAuthUI() {
         return;
       }
 
+      showAppLoading("Abrindo sua conta...");
       setAuthMessage("Login realizado com sucesso.");
       loginForm.reset();
       if (getCurrentPageName() === LOGIN_PAGE) {
@@ -683,6 +907,7 @@ function setupAuthUI() {
         return;
       }
       if (data.session) {
+        showAppLoading("Abrindo sua conta...");
         setAuthMessage("Conta criada e login efetuado.");
         if (getCurrentPageName() === LOGIN_PAGE) {
           redirectAfterAuth();
@@ -752,6 +977,37 @@ function setupProfileUI() {
       updateProfilePreview(draft);
     });
   });
+
+  if (profileBadgePicker) {
+    profileBadgePicker.addEventListener("click", (event) => {
+      if (!currentUser) {
+        return;
+      }
+
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      const button = target.closest(".badge-picker-btn[data-badge-key]");
+      if (!(button instanceof HTMLElement) || button.hasAttribute("disabled")) {
+        return;
+      }
+
+      const nextActive = !button.classList.contains("is-active");
+      button.classList.toggle("is-active", nextActive);
+      button.setAttribute("aria-pressed", String(nextActive));
+
+      const stateNode = button.querySelector(".badge-picker-state");
+      if (stateNode instanceof HTMLElement) {
+        stateNode.textContent = nextActive ? "Exibindo no perfil" : "Clique para exibir";
+      }
+
+      const draft = collectProfileDraft(currentUser, currentProfile || getDefaultProfile(currentUser));
+      applyProfileAppearance(draft);
+      updateProfilePreview(draft);
+    });
+  }
 
   if (profileAvatarFileInput) {
     profileAvatarFileInput.addEventListener("change", async () => {
@@ -859,6 +1115,8 @@ function setupProfileUI() {
       bio: draft.bio,
       avatar_url: draft.avatar_url,
       banner_url: draft.banner_url,
+      owned_badges: draft.owned_badges,
+      equipped_badges: draft.equipped_badges,
       goals_completed: countCompletedGoals(),
       presence_status: draft.presence_status,
       last_seen_at: draft.last_seen_at,
@@ -944,7 +1202,141 @@ function getFriendlySocialError(error, fallbackMessage) {
   return raw;
 }
 
+function normalizeBadgeKey(value) {
+  const key = String(value || "").trim().toLowerCase();
+  return PROFILE_BADGE_DEFINITIONS[key] ? key : "";
+}
+
+function normalizeBadgeKeys(values) {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+  return Array.from(new Set(values.map((value) => normalizeBadgeKey(value)).filter(Boolean)));
+}
+
+function buildOwnedBadgeKeys(sourceKeys = [], isVerified = false) {
+  const keys = normalizeBadgeKeys(sourceKeys);
+  const defaultKeys = normalizeBadgeKeys(DEFAULT_OWNED_BADGE_KEYS);
+  const verifiedKeys = isVerified ? ["verified"] : [];
+  return Array.from(new Set([...defaultKeys, ...keys, ...verifiedKeys].filter((key) => PROFILE_BADGE_KEYS.includes(key))));
+}
+
+function buildEquippedBadgeKeys(sourceKeys = [], ownedBadgeKeys = [], fallbackKeys = []) {
+  const ownedSet = new Set(normalizeBadgeKeys(ownedBadgeKeys));
+  let equipped = normalizeBadgeKeys(sourceKeys).filter((key) => ownedSet.has(key));
+
+  if (equipped.length === 0 && Array.isArray(fallbackKeys) && fallbackKeys.length > 0) {
+    equipped = normalizeBadgeKeys(fallbackKeys).filter((key) => ownedSet.has(key));
+  }
+
+  return Array.from(new Set(equipped));
+}
+
+function getBadgeDefinition(badgeKey) {
+  const key = normalizeBadgeKey(badgeKey);
+  return key ? PROFILE_BADGE_DEFINITIONS[key] || null : null;
+}
+
+function getBadgeRarityMeta(rarityKey) {
+  const key = String(rarityKey || "").trim().toLowerCase();
+  return PROFILE_BADGE_RARITY_META[key] || PROFILE_BADGE_RARITY_META.common;
+}
+
+function getOwnedBadgeKeys(profile, user = currentUser) {
+  const safe = normalizeProfile(profile, user);
+  return buildOwnedBadgeKeys(safe.owned_badges, isProfileVerified(safe, user));
+}
+
+function getEquippedBadgeKeys(profile, user = currentUser) {
+  const safe = normalizeProfile(profile, user);
+  return buildEquippedBadgeKeys(safe.equipped_badges, getOwnedBadgeKeys(safe, user), []);
+}
+
+function buildProfileBadgeHTML(badgeKey, options = {}) {
+  const definition = getBadgeDefinition(badgeKey);
+  if (!definition) {
+    return "";
+  }
+
+  const rarity = getBadgeRarityMeta(definition.rarity);
+  const compact = Boolean(options.compact);
+  const includeRarity = options.includeRarity !== false;
+  const title = `${definition.label} • ${rarity.label}`;
+
+  return `
+    <span class="profile-badge${compact ? " profile-badge--compact" : ""}" data-rarity="${definition.rarity}" title="${escapeAttr(title)}" aria-label="${escapeAttr(title)}">
+      <span class="profile-badge-mark" aria-hidden="true">${escapeHTML(definition.mark)}</span>
+      <span class="profile-badge-copy">
+        <strong class="profile-badge-name">${escapeHTML(definition.label)}</strong>
+        ${includeRarity ? `<span class="profile-badge-rarity">${escapeHTML(rarity.label)}</span>` : ""}
+      </span>
+    </span>
+  `;
+}
+
+function renderProfileBadgeList(node, profile, options = {}) {
+  if (!(node instanceof HTMLElement)) {
+    return;
+  }
+
+  const equippedKeys = getEquippedBadgeKeys(profile, options.user ?? currentUser);
+  if (equippedKeys.length === 0) {
+    node.innerHTML = options.emptyText
+      ? `<span class="profile-badge-empty">${escapeHTML(options.emptyText)}</span>`
+      : "";
+    node.classList.toggle("hidden", !options.emptyText);
+    return;
+  }
+
+  node.classList.remove("hidden");
+  node.innerHTML = equippedKeys.map((key) => buildProfileBadgeHTML(key, options)).join("");
+}
+
+function buildBadgePickerButtonHTML(badgeKey, isActive) {
+  const definition = getBadgeDefinition(badgeKey);
+  if (!definition) {
+    return "";
+  }
+
+  const description = String(definition.description || "").trim();
+  return `
+    <button class="badge-picker-btn${isActive ? " is-active" : ""}" type="button" data-badge-key="${definition.key}" aria-pressed="${String(isActive)}">
+      ${buildProfileBadgeHTML(definition.key)}
+      <span class="badge-picker-state">${isActive ? "Exibindo no perfil" : "Clique para exibir"}</span>
+      ${description ? `<span class="badge-picker-description">${escapeHTML(description)}</span>` : ""}
+    </button>
+  `;
+}
+
+function renderProfileBadgePicker(profile = currentProfile || getDefaultProfile(currentUser)) {
+  if (!(profileBadgePicker instanceof HTMLElement)) {
+    return;
+  }
+
+  const ownedKeys = getOwnedBadgeKeys(profile, currentUser);
+  const equippedKeys = new Set(getEquippedBadgeKeys(profile, currentUser));
+
+  profileBadgePicker.innerHTML = ownedKeys
+    .map((badgeKey) => buildBadgePickerButtonHTML(badgeKey, equippedKeys.has(badgeKey)))
+    .join("");
+}
+
+function getSelectedBadgeKeysFromPicker(profile = currentProfile || getDefaultProfile(currentUser)) {
+  if (!(profileBadgePicker instanceof HTMLElement)) {
+    return getEquippedBadgeKeys(profile, currentUser);
+  }
+
+  const ownedKeys = new Set(getOwnedBadgeKeys(profile, currentUser));
+  const selected = Array.from(profileBadgePicker.querySelectorAll(".badge-picker-btn.is-active[data-badge-key]"))
+    .map((button) => normalizeBadgeKey(button.getAttribute("data-badge-key")))
+    .filter((badgeKey) => badgeKey && ownedKeys.has(badgeKey));
+
+  return Array.from(new Set(selected));
+}
+
 function getDefaultProfile(user) {
+  const ownedBadges = buildOwnedBadgeKeys(DEFAULT_OWNED_BADGE_KEYS, isVerifiedEmail(user?.email));
+  const equippedBadges = buildEquippedBadgeKeys(DEFAULT_EQUIPPED_BADGE_KEYS, ownedBadges, []);
   return {
     user_id: user?.id || "",
     display_name: getUserDisplayName(user),
@@ -955,9 +1347,12 @@ function getDefaultProfile(user) {
     bio: "Blindagem financeira personalizada.",
     avatar_url: "",
     banner_url: "",
+    owned_badges: ownedBadges,
+    equipped_badges: equippedBadges,
     goals_completed: 0,
     presence_status: "online",
     last_seen_at: new Date().toISOString(),
+    is_verified: isVerifiedEmail(user?.email),
     allow_friend_requests: true,
     allow_followers: true,
     show_in_ranking: true,
@@ -1011,6 +1406,10 @@ function updateSettingsCurrentStatus(profile = currentProfile) {
 function normalizeProfile(input, user = currentUser) {
   const safe = input && typeof input === "object" ? input : {};
   const fallback = getDefaultProfile(user);
+  const resolvedUserId = String(safe.user_id || fallback.user_id || "");
+  const ownVerifiedUser = Boolean(user?.id) && resolvedUserId === String(user.id) && isVerifiedEmail(user?.email);
+  const hasExplicitOwnedBadges = Array.isArray(safe.owned_badges);
+  const hasExplicitEquippedBadges = Array.isArray(safe.equipped_badges);
   const theme = PROFILE_THEME_KEYS.includes(String(safe.theme_key || "").toLowerCase())
     ? String(safe.theme_key).toLowerCase()
     : fallback.theme_key;
@@ -1034,12 +1433,22 @@ function normalizeProfile(input, user = currentUser) {
   const lastSeenAt = typeof safe.last_seen_at === "string" && safe.last_seen_at.trim()
     ? safe.last_seen_at
     : fallback.last_seen_at;
+  const isVerified = normalizeBooleanFlag(safe.is_verified, fallback.is_verified || ownVerifiedUser);
+  const ownedBadges = buildOwnedBadgeKeys(
+    hasExplicitOwnedBadges ? safe.owned_badges : fallback.owned_badges,
+    isVerified
+  );
+  const equippedBadges = buildEquippedBadgeKeys(
+    hasExplicitEquippedBadges ? safe.equipped_badges : fallback.equipped_badges,
+    ownedBadges,
+    hasExplicitEquippedBadges ? [] : fallback.equipped_badges
+  );
   const allowFriendRequests = normalizeBooleanFlag(safe.allow_friend_requests, fallback.allow_friend_requests);
   const allowFollowers = normalizeBooleanFlag(safe.allow_followers, fallback.allow_followers);
   const showInRanking = normalizeBooleanFlag(safe.show_in_ranking, fallback.show_in_ranking);
 
   return {
-    user_id: String(safe.user_id || fallback.user_id || ""),
+    user_id: resolvedUserId,
     display_name: displayName,
     theme_key: theme,
     accent_color: accent,
@@ -1048,9 +1457,12 @@ function normalizeProfile(input, user = currentUser) {
     bio,
     avatar_url: avatarUrl,
     banner_url: bannerUrl,
+    owned_badges: ownedBadges,
+    equipped_badges: equippedBadges,
     goals_completed: goalsCompleted,
     presence_status: presenceStatus,
     last_seen_at: lastSeenAt,
+    is_verified: isVerified,
     allow_friend_requests: allowFriendRequests,
     allow_followers: allowFollowers,
     show_in_ranking: showInRanking,
@@ -1296,6 +1708,8 @@ function collectProfileDraft(user, fallbackProfile) {
   const bio = sanitizeProfileBio(profileBioInput?.value || fallback.bio || "");
   const avatarUrl = sanitizeAvatarUrl(profileAvatarDraftUrl || fallback.avatar_url || "");
   const bannerUrl = sanitizeBannerUrl(profileBannerDraftUrl || fallback.banner_url || "");
+  const ownedBadges = getOwnedBadgeKeys(fallback, user);
+  const equippedBadges = getSelectedBadgeKeysFromPicker(fallback);
 
   return normalizeProfile(
     {
@@ -1308,6 +1722,8 @@ function collectProfileDraft(user, fallbackProfile) {
       bio,
       avatar_url: avatarUrl,
       banner_url: bannerUrl,
+      owned_badges: ownedBadges,
+      equipped_badges: equippedBadges,
     },
     user
   );
@@ -1325,6 +1741,7 @@ function hydrateProfileForm(profile) {
   if (profileBioInput) {
     profileBioInput.value = profile.bio;
   }
+  renderProfileBadgePicker(profile);
   profileAvatarDraftUrl = profile.avatar_url || "";
   profileBannerDraftUrl = profile.banner_url || "";
   if (profileAvatarFileInput) {
@@ -1340,7 +1757,8 @@ function updateProfilePreview(profile) {
     return;
   }
   const safe = normalizeProfile(profile, currentUser);
-  profilePreviewName.textContent = safe.display_name;
+  profilePreviewName.innerHTML = buildDisplayNameWithBadgeHTML(safe);
+  renderProfileBadgeList(profilePreviewBadges, safe, { emptyText: "" });
   profilePreviewTagline.textContent = safe.bio;
   profilePreviewMeta.textContent = `Metas batidas: ${safe.goals_completed}`;
   profilePreviewCard.dataset.decoration = safe.decoration;
@@ -1489,6 +1907,8 @@ async function loadUserProfile() {
     return;
   }
 
+  let persistedVerifiedFlag = false;
+
   const { data, error } = await supabaseClient
     .from("user_profiles")
     .select("*")
@@ -1513,6 +1933,8 @@ async function loadUserProfile() {
       bio: defaultProfile.bio,
       avatar_url: defaultProfile.avatar_url,
       banner_url: defaultProfile.banner_url,
+      owned_badges: defaultProfile.owned_badges,
+      equipped_badges: defaultProfile.equipped_badges,
       goals_completed: countCompletedGoals(),
       presence_status: defaultProfile.presence_status,
       last_seen_at: defaultProfile.last_seen_at,
@@ -1532,11 +1954,15 @@ async function loadUserProfile() {
       setProfileError(getFriendlyProfileError(inserted.error));
       currentProfile = defaultProfile;
     } else {
+      persistedVerifiedFlag = normalizeBooleanFlag(inserted.data?.is_verified, false);
       currentProfile = normalizeProfile(inserted.data, currentUser);
     }
   } else {
+    persistedVerifiedFlag = normalizeBooleanFlag(data.is_verified, false);
     currentProfile = normalizeProfile(data, currentUser);
   }
+
+  await ensureVerifiedProfileFlag(persistedVerifiedFlag);
 
   if (currentProfile && currentProfile.presence_status !== "offline") {
     setStoredPreferredPresenceStatus(currentProfile.presence_status, currentUser.id);
@@ -1580,6 +2006,8 @@ async function syncGoalsCompletedToProfile(force = false) {
     bio: currentProfile.bio,
     avatar_url: currentProfile.avatar_url,
     banner_url: currentProfile.banner_url,
+    owned_badges: currentProfile.owned_badges,
+    equipped_badges: currentProfile.equipped_badges,
     goals_completed: currentProfile.goals_completed,
     presence_status: currentProfile.presence_status,
     last_seen_at: currentProfile.last_seen_at,
@@ -1658,7 +2086,7 @@ function renderRanking(items) {
         <span class="ranking-position ${isTop ? "top" : ""}">${position}</span>
         <img class="ranking-avatar" src="${avatarSrc}" alt="Foto de ${escapeHTML(safe.display_name)}" loading="lazy" />
         <div class="ranking-user">
-          <strong class="ranking-name" style="font-family:${fontFamily}">${escapeHTML(safe.display_name)}</strong>
+          <strong class="ranking-name" style="font-family:${fontFamily}">${buildDisplayNameWithBadgeHTML(safe, { iconOnly: true })}</strong>
           <span class="ranking-theme">Tema: ${getThemeLabel(safe.theme_key)} • ${statusLabel}</span>
         </div>
         <div class="ranking-actions">
@@ -1741,7 +2169,8 @@ function openRankingProfile(profile) {
 
   rankingProfileAvatar.src = getAvatarSrc(safe);
   rankingProfileAvatar.alt = `Foto de ${safe.display_name}`;
-  rankingProfileName.textContent = safe.display_name;
+  rankingProfileName.innerHTML = buildDisplayNameWithBadgeHTML(safe);
+  renderProfileBadgeList(rankingProfileBadges, safe, { emptyText: "" });
   rankingProfileName.style.color = safe.accent_color;
   rankingProfileName.style.fontFamily = fontFamily;
   rankingProfileTheme.textContent = `Tema: ${getThemeLabel(safe.theme_key)} • Status: ${getPresenceStatusLabel(getComputedPresenceStatus(safe))} • Decoração: ${safe.decoration}`;
@@ -1766,6 +2195,10 @@ function closeRankingProfile() {
   rankingProfileSheet.style.removeProperty("--ranking-accent");
   rankingProfileSheet.removeAttribute("data-decoration");
   applyRankingCardBanner(rankingProfileSheet, "");
+  if (rankingProfileBadges) {
+    rankingProfileBadges.innerHTML = "";
+    rankingProfileBadges.classList.add("hidden");
+  }
   rankingProfileSheet.classList.add("hidden");
 }
 
@@ -1929,6 +2362,10 @@ function resetPublicProfileUI(message = "") {
 
   if (publicProfileName) {
     publicProfileName.textContent = "Usuário";
+  }
+  if (publicProfileBadges) {
+    publicProfileBadges.innerHTML = "";
+    publicProfileBadges.classList.add("hidden");
   }
   if (publicProfileTagline) {
     publicProfileTagline.textContent = "Perfil público";
@@ -2279,7 +2716,8 @@ function renderPublicProfileCard(profile, stats) {
   }
   publicProfileCard.dataset.decoration = safe.decoration;
   publicProfileCard.style.setProperty("--user-accent", safe.accent_color);
-  publicProfileName.textContent = safe.display_name;
+  publicProfileName.innerHTML = buildDisplayNameWithBadgeHTML(safe);
+  renderProfileBadgeList(publicProfileBadges, safe, { emptyText: "" });
   publicProfileName.style.fontFamily = getNameFontFamily(safe.name_font);
   publicProfileName.style.color = safe.accent_color;
   publicProfileTagline.textContent = safe.bio;
@@ -3862,8 +4300,8 @@ function updateProfileHubUI() {
     profileHubGuest.classList.add("hidden");
     profileHubUser.classList.remove("hidden");
     if (profileHubDisplayName) {
-      const displayName = currentProfile?.display_name || getUserDisplayName(currentUser);
-      profileHubDisplayName.textContent = `Conta de ${displayName}`;
+      const profileLike = currentProfile || getDefaultProfile(currentUser);
+      profileHubDisplayName.innerHTML = `Conta de ${buildDisplayNameWithBadgeHTML(profileLike, { iconOnly: true })}`;
     }
   } else {
     profileHubGuest.classList.remove("hidden");
@@ -4763,17 +5201,16 @@ function setupAppDownloadCta() {
 
   let node = document.getElementById("appDownloadCta");
 
-  if (!(node instanceof HTMLAnchorElement)) {
-    node = document.createElement("a");
+  if (!(node instanceof HTMLButtonElement)) {
+    node = document.createElement("button");
     node.id = "appDownloadCta";
+    node.type = "button";
     node.className = "app-download-cta hidden";
-    node.href = APP_DOWNLOAD_FILE;
-    node.download = APP_DOWNLOAD_FILE;
-    node.setAttribute("aria-label", "Baixar aplicativo Android");
-    node.setAttribute("title", "Baixar aplicativo Android");
+    node.setAttribute("aria-label", "Instalar aplicativo");
+    node.setAttribute("title", "Instalar aplicativo");
     node.innerHTML = `
-      <span class="app-download-icon" aria-hidden="true">⬇</span>
-      <span class="app-download-text">Baixar app</span>
+      <span class="app-download-icon" aria-hidden="true">+</span>
+      <span class="app-download-text">${APP_INSTALL_CTA_LABEL}</span>
     `;
   }
 
@@ -4796,36 +5233,36 @@ function setupAppDownloadCta() {
   }
 
   appDownloadCtaNode = node;
+  appDownloadCtaNode.removeEventListener("click", onAppDownloadCtaClick);
   appDownloadCtaNode.addEventListener("click", onAppDownloadCtaClick);
-  void refreshAppDownloadCtaVisibility();
 
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") {
+  if (!installPromptEventsBound) {
+    installPromptEventsBound = true;
+
+    window.addEventListener("beforeinstallprompt", (event) => {
+      event.preventDefault();
+      deferredInstallPrompt = event;
       void refreshAppDownloadCtaVisibility();
-    }
-  });
-  window.addEventListener("focus", () => {
-    void refreshAppDownloadCtaVisibility();
-  });
-}
+    });
 
-function onAppDownloadCtaClick() {
-  try {
-    localStorage.setItem(APP_DOWNLOAD_STORAGE_KEY, "1");
-  } catch (_error) {
-    // Sem bloqueio se localStorage não estiver disponível.
-  }
-  window.setTimeout(() => {
-    void refreshAppDownloadCtaVisibility();
-  }, 900);
-}
+    window.addEventListener("appinstalled", () => {
+      deferredInstallPrompt = null;
+      void refreshAppDownloadCtaVisibility();
+      showBottomNotice("Aplicativo instalado com sucesso.");
+    });
 
-function hasMarkedAppDownload() {
-  try {
-    return localStorage.getItem(APP_DOWNLOAD_STORAGE_KEY) === "1";
-  } catch (_error) {
-    return false;
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        void refreshAppDownloadCtaVisibility();
+      }
+    });
+
+    window.addEventListener("focus", () => {
+      void refreshAppDownloadCtaVisibility();
+    });
   }
+
+  void refreshAppDownloadCtaVisibility();
 }
 
 function isInstalledAppContext() {
@@ -4838,29 +5275,26 @@ function isInstalledAppContext() {
   return Boolean(fromAndroidAppReferrer || isStandalone);
 }
 
-function isIOSDevice() {
-  const ua = String(window.navigator.userAgent || "").toLowerCase();
-  return /iphone|ipad|ipod/.test(ua);
-}
-
-async function hasInstalledRelatedAndroidApp() {
-  if (typeof navigator.getInstalledRelatedApps !== "function") {
-    return false;
+async function onAppDownloadCtaClick() {
+  if (!deferredInstallPrompt) {
+    showBottomNotice("A instalação do app ainda não está disponível neste navegador.");
+    return;
   }
 
   try {
-    const apps = await navigator.getInstalledRelatedApps();
-    if (!Array.isArray(apps)) {
-      return false;
-    }
+    const promptEvent = deferredInstallPrompt;
+    deferredInstallPrompt = null;
+    await refreshAppDownloadCtaVisibility();
+    await promptEvent.prompt();
+    const outcome = await promptEvent.userChoice;
 
-    return apps.some((app) => {
-      const id = String(app?.id || "").toLowerCase();
-      const url = String(app?.url || "").toLowerCase();
-      return id === APP_PACKAGE_ID || id.includes(APP_PACKAGE_ID) || url.includes(APP_PACKAGE_ID);
-    });
+    if (outcome?.outcome === "accepted") {
+      showBottomNotice("Instalação iniciada no dispositivo.");
+    }
   } catch (_error) {
-    return false;
+    showBottomNotice("Não foi possível abrir a instalação do app.");
+  } finally {
+    await refreshAppDownloadCtaVisibility();
   }
 }
 
@@ -4869,17 +5303,7 @@ async function refreshAppDownloadCtaVisibility() {
     return;
   }
 
-  if (isIOSDevice()) {
-    appDownloadCtaNode.classList.add("hidden");
-    appDownloadCtaNode.setAttribute("aria-hidden", "true");
-    return;
-  }
-
-  const hiddenBecauseInstalledContext = isInstalledAppContext();
-  const hiddenBecauseLocalDownload = hasMarkedAppDownload();
-  const hiddenBecauseRelatedApp = await hasInstalledRelatedAndroidApp();
-
-  const shouldHide = hiddenBecauseInstalledContext || hiddenBecauseLocalDownload || hiddenBecauseRelatedApp;
+  const shouldHide = isInstalledAppContext() || !deferredInstallPrompt;
   appDownloadCtaNode.classList.toggle("hidden", shouldHide);
   appDownloadCtaNode.setAttribute("aria-hidden", String(shouldHide));
 }
@@ -4947,10 +5371,11 @@ function updateAuthUI() {
   lockAuthToggleWidth();
 
   if (currentUser) {
-    const displayName = currentProfile?.display_name || getUserDisplayName(currentUser);
+    const profileLike = currentProfile || getDefaultProfile(currentUser);
+    const displayName = profileLike.display_name || getUserDisplayName(currentUser);
     authGuest.classList.add("hidden");
     authUser.classList.remove("hidden");
-    authUserName.textContent = displayName;
+    authUserName.innerHTML = buildDisplayNameWithBadgeHTML(profileLike, { iconOnly: true });
     if (authToggle) {
       authToggle.textContent = displayName;
       authToggle.title = displayName;
@@ -4966,7 +5391,7 @@ function updateAuthUI() {
   } else {
     authGuest.classList.remove("hidden");
     authUser.classList.add("hidden");
-    authUserName.textContent = "";
+    authUserName.innerHTML = "";
     if (authToggle) {
       authToggle.textContent = "Login";
       authToggle.title = "Login";
@@ -4995,6 +5420,54 @@ function getUserDisplayName(user) {
     return emailName || fallback;
   }
   return raw;
+}
+
+function isVerifiedEmail(email) {
+  const normalized = String(email || "").trim().toLowerCase();
+  return Boolean(normalized) && VERIFIED_BADGE_EMAILS.has(normalized);
+}
+
+function isProfileVerified(profile, user = currentUser) {
+  if (profile?.is_verified === true) {
+    return true;
+  }
+
+  if (!profile || typeof profile !== "object" || !user?.id) {
+    return false;
+  }
+
+  return String(profile.user_id || "") === String(user.id) && isVerifiedEmail(user.email);
+}
+
+function buildVerifiedBadgeHTML(profile, options = {}) {
+  if (!isProfileVerified(profile, options.user || currentUser)) {
+    return "";
+  }
+
+  const label = escapeAttr(VERIFIED_BADGE_LABEL);
+  return `<span class="verified-badge verified-badge--icon-only" aria-label="${label}" title="${label}"><span class="verified-badge-check" aria-hidden="true">✓</span><span class="verified-badge-text">${escapeHTML(VERIFIED_BADGE_LABEL)}</span></span>`;
+}
+
+function buildDisplayNameWithBadgeHTML(profile, options = {}) {
+  const safe = normalizeProfile(profile, options.user ?? currentUser);
+  return `<span class="name-with-badge"><span class="name-with-badge-text">${escapeHTML(safe.display_name)}</span>${buildVerifiedBadgeHTML(safe, options)}</span>`;
+}
+
+async function ensureVerifiedProfileFlag(persistedFlag = false) {
+  if (!supabaseReady || !currentUser || !currentProfile || persistedFlag || !isVerifiedEmail(currentUser.email)) {
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from("user_profiles")
+    .update({ updated_at: new Date().toISOString() })
+    .eq("user_id", currentUser.id)
+    .select("*")
+    .maybeSingle();
+
+  if (!error && data) {
+    currentProfile = normalizeProfile(data, currentUser);
+  }
 }
 
 function lockAuthToggleWidth() {

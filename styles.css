@@ -55,6 +55,39 @@ body {
   overflow-x: hidden;
 }
 
+html.app-shell-pending body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2498;
+  background:
+    radial-gradient(circle at 18% 14%, rgba(12, 224, 255, 0.18), transparent 28%),
+    radial-gradient(circle at 82% 0%, rgba(87, 255, 190, 0.14), transparent 24%),
+    rgba(0, 0, 0, 0.94);
+}
+
+html.app-shell-pending body::after {
+  content: "Banco Ocioso\ASincronizando seus dados...";
+  white-space: pre-line;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(84vw, 320px);
+  padding: 1.15rem 1rem;
+  border: 1px solid rgba(90, 255, 197, 0.18);
+  border-radius: 22px;
+  background: linear-gradient(165deg, rgba(15, 19, 29, 0.96), rgba(5, 7, 11, 0.96));
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(12, 224, 255, 0.08);
+  color: var(--text);
+  font-family: "Sora", sans-serif;
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.6;
+  text-align: center;
+  z-index: 2499;
+}
+
 body[data-theme="neon"] {
   --brand: #0ce0ff;
   --brand-2: #57ffbe;
@@ -151,6 +184,13 @@ body[data-theme="carbon"] {
   --brand-2: #cbd3df;
   --bg-glow-1: #0f1117;
   --bg-glow-2: #1c2029;
+}
+
+body[data-theme="linithy"] {
+  --brand: #f4f6fb;
+  --brand-2: #a9b0ba;
+  --bg-glow-1: #050505;
+  --bg-glow-2: #141414;
 }
 
 h1,
@@ -1178,6 +1218,90 @@ main {
   animation: uiEnter 0.56s var(--ease-standard) both;
 }
 
+.app-loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  display: grid;
+  place-items: center;
+  padding: calc(1.2rem + var(--safe-top)) 1rem calc(1.2rem + var(--safe-bottom));
+  background:
+    radial-gradient(circle at 18% 14%, rgba(12, 224, 255, 0.16), transparent 28%),
+    radial-gradient(circle at 82% 0%, rgba(87, 255, 190, 0.12), transparent 24%),
+    rgba(0, 0, 0, 0.86);
+  backdrop-filter: blur(18px);
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.3s var(--ease-standard), visibility 0.3s var(--ease-standard);
+}
+
+.app-loading-screen.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.app-loading-card {
+  width: min(100%, 360px);
+  padding: 1.25rem 1.1rem 1.15rem;
+  border: 1px solid rgba(90, 255, 197, 0.2);
+  border-radius: 24px;
+  background: linear-gradient(170deg, rgba(19, 23, 34, 0.98), rgba(8, 10, 16, 0.98));
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(12, 224, 255, 0.07);
+}
+
+.app-loading-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: "Sora", sans-serif;
+  font-size: 1rem;
+}
+
+.app-loading-brand-dot {
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 20px rgba(12, 224, 255, 0.42);
+}
+
+.app-loading-bars {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.app-loading-bar {
+  display: block;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(12, 224, 255, 0.18), rgba(87, 255, 190, 0.86), rgba(12, 224, 255, 0.18));
+  background-size: 200% 100%;
+  animation: appLoadingBar 1.4s linear infinite;
+}
+
+.app-loading-bar:nth-child(2) {
+  animation-delay: 0.18s;
+  opacity: 0.88;
+}
+
+.app-loading-bar:nth-child(3) {
+  animation-delay: 0.32s;
+  opacity: 0.74;
+}
+
+.app-loading-title {
+  margin: 1rem 0 0;
+  font-size: 1.02rem;
+}
+
+.app-loading-message {
+  margin: 0.42rem 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 body.ui-boot .header {
   animation: bootSlideDown 0.62s var(--ease-standard) both;
 }
@@ -1258,6 +1382,65 @@ body.ui-boot main {
 .auth-welcome {
   margin: 0 0 0.8rem;
   color: var(--muted);
+}
+
+.name-with-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  max-width: 100%;
+  min-width: 0;
+  vertical-align: middle;
+}
+
+.name-with-badge-text {
+  min-width: 0;
+  max-width: 100%;
+  color: inherit;
+}
+
+.auth-welcome .name-with-badge-text,
+.profile-preview-name .name-with-badge-text,
+.ranking-name .name-with-badge-text,
+.ranking-profile-name .name-with-badge-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.verified-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.verified-badge-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.98rem;
+  height: 0.98rem;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f6f8fd;
+  font-size: 0.58rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.verified-badge-text {
+  display: none;
+}
+
+.verified-badge--icon-only {
+  gap: 0;
+}
+
+.verified-badge--icon-only .verified-badge-text {
+  display: none;
 }
 
 .auth-widget {
@@ -1819,6 +2002,157 @@ body.ui-boot main {
   color: var(--text);
   position: relative;
   z-index: 1;
+}
+
+.profile-badge-list {
+  margin-top: 0.7rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+.profile-badge {
+  --badge-accent: #b7c0d1;
+  --badge-surface: rgba(183, 192, 209, 0.1);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 38px;
+  padding: 0.42rem 0.68rem;
+  border: 1px solid color-mix(in srgb, var(--badge-accent) 28%, rgba(255, 255, 255, 0.08));
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--badge-surface), rgba(255, 255, 255, 0.02));
+  color: var(--text);
+}
+
+.profile-badge[data-rarity="common"] {
+  --badge-accent: #b7c0d1;
+  --badge-surface: rgba(183, 192, 209, 0.1);
+}
+
+.profile-badge[data-rarity="uncommon"] {
+  --badge-accent: #72ef9a;
+  --badge-surface: rgba(114, 239, 154, 0.11);
+}
+
+.profile-badge[data-rarity="rare"] {
+  --badge-accent: #68d8ff;
+  --badge-surface: rgba(104, 216, 255, 0.12);
+}
+
+.profile-badge[data-rarity="epic"] {
+  --badge-accent: #d68bff;
+  --badge-surface: rgba(214, 139, 255, 0.12);
+}
+
+.profile-badge[data-rarity="mythic"] {
+  --badge-accent: #ffb86b;
+  --badge-surface: rgba(255, 184, 107, 0.12);
+}
+
+.profile-badge[data-rarity="ultra_mythic"] {
+  --badge-accent: #f5f7fb;
+  --badge-surface: rgba(245, 247, 251, 0.09);
+}
+
+.profile-badge--compact {
+  min-height: 34px;
+  padding: 0.36rem 0.58rem;
+}
+
+.profile-badge-mark {
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--badge-accent) 44%, rgba(255, 255, 255, 0.12));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Sora", sans-serif;
+  font-size: 0.58rem;
+  font-weight: 800;
+  color: var(--badge-accent);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.profile-badge-copy {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.profile-badge-name {
+  font-size: 0.79rem;
+  line-height: 1;
+}
+
+.profile-badge-rarity {
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--badge-accent);
+}
+
+.profile-badge-empty {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.profile-badge-panel {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem;
+  border: 1px solid #2d3545;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.profile-badge-panel-head {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.profile-badge-panel-head strong {
+  font-size: 0.95rem;
+}
+
+.profile-badge-panel-head span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.profile-badge-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.badge-picker-btn {
+  text-align: left;
+  border: 1px solid #2d3545;
+  border-radius: 18px;
+  padding: 0.8rem;
+  background: rgba(255, 255, 255, 0.02);
+  display: grid;
+  gap: 0.5rem;
+}
+
+.badge-picker-btn.is-active {
+  border-color: rgba(104, 216, 255, 0.4);
+  box-shadow: 0 0 0 1px rgba(104, 216, 255, 0.08), 0 14px 30px rgba(0, 0, 0, 0.16);
+}
+
+.badge-picker-state {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.badge-picker-description {
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--muted);
 }
 
 .profile-form {
@@ -2631,6 +2965,10 @@ select:focus {
     font-size: 0.94rem;
   }
 
+  .profile-badge-picker {
+    grid-template-columns: 1fr;
+  }
+
   .auth-toggle {
     min-height: 34px;
     padding: 0.38rem 0.82rem;
@@ -2760,6 +3098,21 @@ select:focus {
   100% {
     transform: translateY(0);
     opacity: 1;
+  }
+}
+
+@keyframes appLoadingBar {
+  0% {
+    background-position: 100% 0;
+    transform: scaleX(0.92);
+  }
+  50% {
+    background-position: 0 0;
+    transform: scaleX(1);
+  }
+  100% {
+    background-position: -100% 0;
+    transform: scaleX(0.92);
   }
 }
 

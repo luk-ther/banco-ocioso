@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Banco Ocioso | Ranking</title>
   <meta name="description" content="Ranking global do Banco Ocioso com usuários que mais bateram metas." />
+  <script>
+    (() => {
+      try {
+        document.documentElement.classList.add(
+          sessionStorage.getItem("bo_initial_loading_seen_v1") === "1" ? "app-shell-ready" : "app-shell-pending"
+        );
+      } catch (_error) {
+        document.documentElement.classList.add("app-shell-pending");
+      }
+    })();
+  </script>
   <link rel="icon" type="image/png" href="img/logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -93,6 +104,7 @@
             <img id="rankingProfileAvatar" class="ranking-profile-avatar" src="" alt="Foto do usuário do ranking" />
             <div class="ranking-profile-content">
               <h3 id="rankingProfileName" class="ranking-profile-name">Usuário</h3>
+              <div id="rankingProfileBadges" class="profile-badge-list hidden" aria-live="polite"></div>
               <p id="rankingProfileTheme" class="ranking-profile-text">Tema</p>
               <p id="rankingProfileBio" class="ranking-profile-text">Descrição</p>
               <p id="rankingProfileGoals" class="ranking-profile-text">Metas batidas</p>
