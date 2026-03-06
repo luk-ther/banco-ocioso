@@ -639,6 +639,7 @@ drawable ic_call_answer_video
 drawable ic_call_answer_video_low
 drawable ic_call_decline
 drawable ic_call_decline_low
+drawable ic_launcher_background
 drawable ic_notification_icon
 drawable ic_site_settings
 drawable notification_action_background
@@ -901,6 +902,8 @@ layout select_dialog_multichoice_material
 layout select_dialog_singlechoice_material
 layout support_simple_spinner_dropdown_item
 mipmap ic_launcher
+mipmap ic_launcher_foreground
+mipmap ic_launcher_round
 mipmap ic_maskable
 raw web_app_manifest
 string abc_action_bar_home_description

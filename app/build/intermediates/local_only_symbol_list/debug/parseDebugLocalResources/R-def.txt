@@ -10,11 +10,14 @@ color navigationColorDark
 color navigationDividerColor
 color navigationDividerColorDark
 color shortcut_background
+drawable ic_launcher_background
 drawable ic_notification_icon
 drawable shortcut_legacy_background
 drawable splash
 integer splashScreenFadeOutDuration
 mipmap ic_launcher
+mipmap ic_launcher_foreground
+mipmap ic_launcher_round
 mipmap ic_maskable
 raw web_app_manifest
 string appName

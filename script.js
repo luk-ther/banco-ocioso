@@ -257,6 +257,7 @@ let publicChatPollInFlight = false;
 const loadedProfileFonts = new Set();
 
 const DEVICE_NOTIFY_PREF_KEY = "bo_device_notifications_enabled";
+const PRESENCE_PREFERRED_STATUS_PREFIX = "bo_presence_preferred_status_";
 const SYSTEM_PREF_KEYS = {
   notifyMessages: "bo_notify_messages_enabled",
   notifyRequests: "bo_notify_friend_requests_enabled",
@@ -1535,6 +1536,10 @@ async function loadUserProfile() {
     }
   } else {
     currentProfile = normalizeProfile(data, currentUser);
+  }
+
+  if (currentProfile && currentProfile.presence_status !== "offline") {
+    setStoredPreferredPresenceStatus(currentProfile.presence_status, currentUser.id);
   }
 
   hydrateProfileForm(currentProfile);
@@ -3337,6 +3342,58 @@ function setBooleanLocalPreference(key, enabled) {
   }
 }
 
+function getPresencePreferenceStorageKey(userId = currentUser?.id) {
+  const id = String(userId || "").trim();
+  if (!id) {
+    return "";
+  }
+  return `${PRESENCE_PREFERRED_STATUS_PREFIX}${id}`;
+}
+
+function getStoredPreferredPresenceStatus(userId = currentUser?.id) {
+  const key = getPresencePreferenceStorageKey(userId);
+  if (!key) {
+    return "";
+  }
+  try {
+    const raw = String(localStorage.getItem(key) || "").toLowerCase();
+    return PRESENCE_STATUS_KEYS.includes(raw) ? raw : "";
+  } catch (_error) {
+    return "";
+  }
+}
+
+function setStoredPreferredPresenceStatus(status, userId = currentUser?.id) {
+  const normalized = String(status || "").toLowerCase();
+  if (!PRESENCE_STATUS_KEYS.includes(normalized)) {
+    return;
+  }
+  const key = getPresencePreferenceStorageKey(userId);
+  if (!key) {
+    return;
+  }
+  try {
+    localStorage.setItem(key, normalized);
+  } catch (_error) {
+    // Sem bloqueio se localStorage não estiver disponível.
+  }
+}
+
+function resolvePreferredPresenceStatus(profile = currentProfile, fallback = "online") {
+  const stored = getStoredPreferredPresenceStatus(currentUser?.id);
+  if (stored) {
+    return stored;
+  }
+
+  const safe = normalizeProfile(profile, currentUser);
+  if (safe.presence_status && safe.presence_status !== "offline") {
+    return safe.presence_status;
+  }
+
+  const normalizedFallback = String(fallback || "").toLowerCase();
+  return PRESENCE_STATUS_KEYS.includes(normalizedFallback) ? normalizedFallback : "online";
+}
+
 function getSystemNotificationMessagesEnabled() {
   return getBooleanLocalPreference(SYSTEM_PREF_KEYS.notifyMessages, true);
 }
@@ -3375,15 +3432,22 @@ async function touchCurrentUserPresence(setStatus = "") {
   }
 
   const nowIso = new Date().toISOString();
+  const explicitStatus = String(setStatus || "").toLowerCase();
+  const normalizedExplicitStatus = explicitStatus
+    ? (PRESENCE_STATUS_KEYS.includes(explicitStatus) ? explicitStatus : "online")
+    : "";
+  const statusToApply = normalizedExplicitStatus || resolvePreferredPresenceStatus(currentProfile, "online");
+
   const payload = {
     last_seen_at: nowIso,
     updated_at: nowIso,
   };
-  if (setStatus) {
-    const normalizedStatus = PRESENCE_STATUS_KEYS.includes(String(setStatus).toLowerCase())
-      ? String(setStatus).toLowerCase()
-      : "online";
-    payload.presence_status = normalizedStatus;
+  if (statusToApply) {
+    payload.presence_status = statusToApply;
+  }
+
+  if (normalizedExplicitStatus && normalizedExplicitStatus !== "offline") {
+    setStoredPreferredPresenceStatus(normalizedExplicitStatus, currentUser.id);
   }
 
   const { data, error } = await supabaseClient
@@ -3395,6 +3459,10 @@ async function touchCurrentUserPresence(setStatus = "") {
 
   if (!error && data) {
     currentProfile = normalizeProfile(data, currentUser);
+    if (currentProfile.presence_status !== "offline") {
+      setStoredPreferredPresenceStatus(currentProfile.presence_status, currentUser.id);
+    }
+    setPresenceStatusSelection(resolvePreferredPresenceStatus(currentProfile, currentProfile.presence_status));
     updateSettingsCurrentStatus(currentProfile);
   }
 }
@@ -3997,9 +4065,11 @@ function setupSettingsUI() {
       }
 
       currentProfile = normalizeProfile(data, currentUser);
+      setStoredPreferredPresenceStatus(nextProfile.presence_status, currentUser.id);
       applyProfileAppearance(currentProfile);
       updateProfilePreview(currentProfile);
       updateAuthUI();
+      setPresenceStatusSelection(resolvePreferredPresenceStatus(currentProfile, currentProfile.presence_status));
       updateSettingsCurrentStatus(currentProfile);
       setSettingsSocialMessage("Configurações sociais atualizadas.");
       await loadGlobalRanking();
@@ -4051,7 +4121,7 @@ function resetSettingsUI(systemMessage = "", socialMessage = "") {
   if (settingsSystemReduceMotion) {
     settingsSystemReduceMotion.checked = getSystemReduceMotionEnabled();
   }
-  setPresenceStatusSelection(currentProfile?.presence_status || "online");
+  setPresenceStatusSelection(resolvePreferredPresenceStatus(currentProfile, "online"));
   updateSettingsCurrentStatus(currentProfile);
   syncAllSettingsToggleButtons();
   applyMotionPreferenceFromStorage();
@@ -4084,7 +4154,7 @@ async function loadSettingsPageData() {
     settingsUser.classList.remove("hidden");
   }
 
-  setPresenceStatusSelection(safeProfile.presence_status);
+  setPresenceStatusSelection(resolvePreferredPresenceStatus(safeProfile, safeProfile.presence_status));
 
   if (settingsAllowFriendRequests) {
     settingsAllowFriendRequests.checked = safeProfile.allow_friend_requests;
