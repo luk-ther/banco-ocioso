@@ -23,6 +23,7 @@ create table if not exists public.user_profiles (
   allow_friend_requests boolean not null default true,
   allow_followers boolean not null default true,
   show_in_ranking boolean not null default true,
+  dismissed_notification_keys text[] not null default array[]::text[],
   bio text not null default '' check (char_length(bio) <= 180),
   avatar_url text not null default '',
   banner_url text not null default '' check (char_length(banner_url) <= 560000),
@@ -93,8 +94,10 @@ alter table public.user_profiles add column if not exists equipped_badges text[]
 alter table public.user_profiles add column if not exists allow_friend_requests boolean not null default true;
 alter table public.user_profiles add column if not exists allow_followers boolean not null default true;
 alter table public.user_profiles add column if not exists show_in_ranking boolean not null default true;
+alter table public.user_profiles add column if not exists dismissed_notification_keys text[] not null default array[]::text[];
 alter table public.user_profiles alter column owned_badges set default array[]::text[];
 alter table public.user_profiles alter column equipped_badges set default array[]::text[];
+alter table public.user_profiles alter column dismissed_notification_keys set default array[]::text[];
 
 alter table public.user_profiles drop constraint if exists user_profiles_theme_key_check;
 alter table public.user_profiles add constraint user_profiles_theme_key_check

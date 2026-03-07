@@ -109,6 +109,7 @@ const PROFILE_NAME_FONT_KEYS = [
   "bebas",
 ];
 const PRESENCE_STATUS_KEYS = ["online", "dnd", "away", "offline"];
+const MAX_DISMISSED_NOTIFICATION_KEYS = 600;
 const VERIFIED_BADGE_EMAILS = new Set(["luktheer@gmail.com"]);
 const VERIFIED_BADGE_LABEL = "Verificado";
 const PRESENCE_STATUS_LABELS = {
@@ -1224,6 +1225,7 @@ function setupProfileUI() {
       allow_friend_requests: draft.allow_friend_requests,
       allow_followers: draft.allow_followers,
       show_in_ranking: draft.show_in_ranking,
+      dismissed_notification_keys: draft.dismissed_notification_keys,
       updated_at: new Date().toISOString(),
     };
 
@@ -1457,6 +1459,7 @@ function getDefaultProfile(user) {
     allow_friend_requests: true,
     allow_followers: true,
     show_in_ranking: true,
+    dismissed_notification_keys: [],
     created_at: typeof user?.created_at === "string" ? user.created_at : new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -1473,6 +1476,28 @@ function normalizeBooleanFlag(value, fallback) {
     return false;
   }
   return Boolean(fallback);
+}
+
+function normalizeNotificationKey(value) {
+  return String(value || "").trim().slice(0, 160);
+}
+
+function normalizeDismissedNotificationKeys(values, fallback = []) {
+  const source = Array.isArray(values) ? values : fallback;
+  const output = [];
+  const seen = new Set();
+  source.forEach((item) => {
+    const key = normalizeNotificationKey(item);
+    if (!key || seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    output.push(key);
+  });
+  if (output.length <= MAX_DISMISSED_NOTIFICATION_KEYS) {
+    return output;
+  }
+  return output.slice(-MAX_DISMISSED_NOTIFICATION_KEYS);
 }
 
 function getPresenceStatusLabel(statusKey) {
@@ -1547,6 +1572,10 @@ function normalizeProfile(input, user = currentUser) {
   const allowFriendRequests = normalizeBooleanFlag(safe.allow_friend_requests, fallback.allow_friend_requests);
   const allowFollowers = normalizeBooleanFlag(safe.allow_followers, fallback.allow_followers);
   const showInRanking = normalizeBooleanFlag(safe.show_in_ranking, fallback.show_in_ranking);
+  const dismissedNotificationKeys = normalizeDismissedNotificationKeys(
+    safe.dismissed_notification_keys,
+    fallback.dismissed_notification_keys
+  );
 
   return {
     user_id: resolvedUserId,
@@ -1567,6 +1596,7 @@ function normalizeProfile(input, user = currentUser) {
     allow_friend_requests: allowFriendRequests,
     allow_followers: allowFollowers,
     show_in_ranking: showInRanking,
+    dismissed_notification_keys: dismissedNotificationKeys,
     created_at: typeof safe.created_at === "string" ? safe.created_at : fallback.created_at,
     updated_at: typeof safe.updated_at === "string" ? safe.updated_at : new Date().toISOString(),
   };
@@ -2042,6 +2072,7 @@ async function loadUserProfile() {
       allow_friend_requests: defaultProfile.allow_friend_requests,
       allow_followers: defaultProfile.allow_followers,
       show_in_ranking: defaultProfile.show_in_ranking,
+      dismissed_notification_keys: defaultProfile.dismissed_notification_keys,
       updated_at: new Date().toISOString(),
     };
 
@@ -2115,6 +2146,7 @@ async function syncGoalsCompletedToProfile(force = false) {
     allow_friend_requests: currentProfile.allow_friend_requests,
     allow_followers: currentProfile.allow_followers,
     show_in_ranking: currentProfile.show_in_ranking,
+    dismissed_notification_keys: currentProfile.dismissed_notification_keys,
     updated_at: currentProfile.updated_at,
   };
 
@@ -4568,11 +4600,100 @@ function buildNotificationTypeLabel(kind) {
   }
 }
 
+function buildNotificationKey(item) {
+  const kind = String(item?.kind || "").trim().toLowerCase();
+  switch (kind) {
+    case "request":
+      return normalizeNotificationKey(`request:${item?.requestId || item?.id || ""}`);
+    case "follow":
+      return normalizeNotificationKey(`follow:${item?.followId || item?.id || ""}`);
+    case "friendship":
+      return normalizeNotificationKey(`friendship:${item?.friendshipId || item?.id || ""}`);
+    case "message":
+      return normalizeNotificationKey(`message:${item?.messageId || item?.id || ""}`);
+    default:
+      return normalizeNotificationKey(`${kind || "generic"}:${item?.id || item?.sortAt || item?.createdAt || ""}`);
+  }
+}
+
+function getDismissedNotificationKeySet(profile = currentProfile) {
+  const safeProfile = normalizeProfile(profile || getDefaultProfile(currentUser), currentUser);
+  return new Set(normalizeDismissedNotificationKeys(safeProfile.dismissed_notification_keys));
+}
+
+function buildDismissNotificationButtonHTML(notificationKey) {
+  const safeKey = normalizeNotificationKey(notificationKey);
+  if (!safeKey) {
+    return "";
+  }
+  return `<button class="btn btn-ghost notification-dismiss-btn" type="button" data-dismiss-notification="${escapeAttr(safeKey)}">Remover</button>`;
+}
+
+async function dismissNotificationItem(notificationKey) {
+  const safeKey = normalizeNotificationKey(notificationKey);
+  if (!supabaseReady || !currentUser || !safeKey) {
+    setNotificationsFeedback("Não foi possível remover esta notificação.", true);
+    return false;
+  }
+
+  const baseProfile = normalizeProfile(currentProfile || getDefaultProfile(currentUser), currentUser);
+  const nextProfile = normalizeProfile(
+    {
+      ...baseProfile,
+      dismissed_notification_keys: normalizeDismissedNotificationKeys([
+        ...baseProfile.dismissed_notification_keys,
+        safeKey,
+      ]),
+      updated_at: new Date().toISOString(),
+    },
+    currentUser
+  );
+
+  const payload = {
+    user_id: currentUser.id,
+    display_name: nextProfile.display_name,
+    theme_key: nextProfile.theme_key,
+    accent_color: nextProfile.accent_color,
+    name_font: nextProfile.name_font,
+    decoration: nextProfile.decoration,
+    bio: nextProfile.bio,
+    avatar_url: nextProfile.avatar_url,
+    banner_url: nextProfile.banner_url,
+    owned_badges: nextProfile.owned_badges,
+    equipped_badges: nextProfile.equipped_badges,
+    goals_completed: nextProfile.goals_completed,
+    presence_status: nextProfile.presence_status,
+    last_seen_at: nextProfile.last_seen_at,
+    allow_friend_requests: nextProfile.allow_friend_requests,
+    allow_followers: nextProfile.allow_followers,
+    show_in_ranking: nextProfile.show_in_ranking,
+    dismissed_notification_keys: nextProfile.dismissed_notification_keys,
+    updated_at: nextProfile.updated_at,
+  };
+
+  const { data, error } = await supabaseClient
+    .from("user_profiles")
+    .upsert(payload, { onConflict: "user_id" })
+    .select("*")
+    .single();
+
+  if (error) {
+    setNotificationsFeedback(getFriendlyProfileError(error), true);
+    return false;
+  }
+
+  currentProfile = normalizeProfile(data, currentUser);
+  setNotificationsFeedback("Notificação removida.");
+  await loadNotificationsPageData();
+  return true;
+}
+
 function buildNotificationItemHTML(item) {
   const profile = getProfileFromMap(item?.profileMap, item?.profile?.user_id || item?.userId);
   const safeKind = String(item?.kind || "generic").trim().toLowerCase();
   const when = formatNotificationTimestamp(item?.sortAt || item?.createdAt);
   const profileHref = profile.user_id ? buildUnifiedProfileHref(profile.user_id) : "";
+  const notificationKey = buildNotificationKey(item);
   let bodyText = "";
   let previewText = "";
   let actionsHTML = "";
@@ -4584,19 +4705,22 @@ function buildNotificationItemHTML(item) {
         <button class="btn btn-primary" type="button" data-action="accept" data-request-id="${escapeAttr(item.requestId)}" data-requester-id="${escapeAttr(item.requesterId)}">Aceitar</button>
         <button class="btn btn-ghost" type="button" data-action="reject" data-request-id="${escapeAttr(item.requestId)}" data-requester-id="${escapeAttr(item.requesterId)}">Recusar</button>
         ${profileHref ? `<a class="btn btn-ghost" href="${escapeAttr(profileHref)}">Ver perfil</a>` : ""}
+        ${buildDismissNotificationButtonHTML(notificationKey)}
       `;
       break;
     case "follow":
       bodyText = "Começou a seguir o seu perfil.";
-      actionsHTML = profileHref
-        ? `<a class="btn btn-ghost" href="${escapeAttr(profileHref)}">Ver perfil</a>`
-        : "";
+      actionsHTML = `
+        ${profileHref ? `<a class="btn btn-ghost" href="${escapeAttr(profileHref)}">Ver perfil</a>` : ""}
+        ${buildDismissNotificationButtonHTML(notificationKey)}
+      `;
       break;
     case "friendship":
       bodyText = "Agora faz parte da sua lista de amigos.";
       actionsHTML = `
         <a class="btn btn-ghost" href="chats.html">Abrir chats</a>
         ${profileHref ? `<a class="btn btn-ghost" href="${escapeAttr(profileHref)}">Ver perfil</a>` : ""}
+        ${buildDismissNotificationButtonHTML(notificationKey)}
       `;
       break;
     case "message":
@@ -4608,10 +4732,12 @@ function buildNotificationItemHTML(item) {
       actionsHTML = `
         <a class="btn btn-ghost" href="chats.html">Abrir chat</a>
         ${profileHref ? `<a class="btn btn-ghost" href="${escapeAttr(profileHref)}">Ver perfil</a>` : ""}
+        ${buildDismissNotificationButtonHTML(notificationKey)}
       `;
       break;
     default:
       bodyText = "Nova atualização na sua conta.";
+      actionsHTML = buildDismissNotificationButtonHTML(notificationKey);
       break;
   }
 
@@ -5153,6 +5279,7 @@ function setupSettingsUI() {
         allow_friend_requests: nextProfile.allow_friend_requests,
         allow_followers: nextProfile.allow_followers,
         show_in_ranking: nextProfile.show_in_ranking,
+        dismissed_notification_keys: nextProfile.dismissed_notification_keys,
         updated_at: nextProfile.updated_at,
       };
 
@@ -5655,6 +5782,15 @@ function setupNotificationsUI() {
     if (!(target instanceof Element)) {
       return;
     }
+    const dismissButton = target.closest("button[data-dismiss-notification]");
+    if (dismissButton instanceof HTMLButtonElement) {
+      dismissButton.disabled = true;
+      const dismissed = await dismissNotificationItem(dismissButton.getAttribute("data-dismiss-notification"));
+      if (!dismissed) {
+        dismissButton.disabled = false;
+      }
+      return;
+    }
     const actionButton = target.closest("button[data-request-id][data-action]");
     if (!actionButton) {
       return;
@@ -5792,6 +5928,7 @@ async function loadNotificationsPageData() {
   await trackAndNotifyNewFriendships(safeFriendships, profileMap);
 
   const friendIdSet = new Set(friendIds);
+  const dismissedNotificationKeys = getDismissedNotificationKeySet(currentProfile);
   const latestIncomingMessages = [];
   const seenMessageSenders = new Set();
   safeMessages.forEach((item) => {
@@ -5812,6 +5949,7 @@ async function loadNotificationsPageData() {
   const feedItems = [
     ...safeRequests.map((item) => ({
       kind: "request",
+      id: String(item.id || ""),
       requestId: String(item.id || ""),
       requesterId: String(item.requester_id || ""),
       createdAt: item.created_at,
@@ -5822,6 +5960,8 @@ async function loadNotificationsPageData() {
     })),
     ...safeFollows.map((item) => ({
       kind: "follow",
+      id: String(item.id || ""),
+      followId: String(item.id || ""),
       createdAt: item.created_at,
       sortAt: item.created_at,
       userId: String(item.follower_id || ""),
@@ -5832,6 +5972,8 @@ async function loadNotificationsPageData() {
       const peerId = getFriendshipPeerId(item, currentUser.id);
       return {
         kind: "friendship",
+        id: String(item.id || ""),
+        friendshipId: String(item.id || ""),
         createdAt: item.created_at,
         sortAt: item.created_at,
         userId: peerId,
@@ -5841,6 +5983,8 @@ async function loadNotificationsPageData() {
     }),
     ...latestIncomingMessages.map((item) => ({
       kind: "message",
+      id: String(item.id || ""),
+      messageId: String(item.id || ""),
       createdAt: item.created_at,
       sortAt: item.created_at,
       userId: String(item.sender_id || ""),
@@ -5848,7 +5992,13 @@ async function loadNotificationsPageData() {
       profile: getProfileFromMap(profileMap, item.sender_id),
       profileMap,
     })),
-  ].sort((a, b) => new Date(b.sortAt || 0).getTime() - new Date(a.sortAt || 0).getTime());
+  ]
+    .map((item) => ({
+      ...item,
+      notificationKey: buildNotificationKey(item),
+    }))
+    .filter((item) => item.notificationKey && !dismissedNotificationKeys.has(item.notificationKey))
+    .sort((a, b) => new Date(b.sortAt || 0).getTime() - new Date(a.sortAt || 0).getTime());
 
   if (feedItems.length === 0) {
     notificationsList.innerHTML = "<article class=\"notification-item notification-item--empty\"><p class=\"vault-meta\">Sem notificações novas no momento.</p></article>";
