@@ -534,3 +534,35 @@ on public.social_messages (sender_id, receiver_id, created_at desc);
 
 create index if not exists social_messages_receiver_sender_created_idx
 on public.social_messages (receiver_id, sender_id, created_at desc);
+
+do $$
+begin
+  alter publication supabase_realtime add table public.social_messages;
+exception
+  when duplicate_object then null;
+  when undefined_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.social_friend_requests;
+exception
+  when duplicate_object then null;
+  when undefined_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.social_follows;
+exception
+  when duplicate_object then null;
+  when undefined_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.social_friendships;
+exception
+  when duplicate_object then null;
+  when undefined_object then null;
+end $$;

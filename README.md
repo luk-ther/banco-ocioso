@@ -44,4 +44,4 @@ window.SUPABASE_ANON_KEY = "SUA_ANON_KEY";
 - `supabase-config.js`: credenciais do projeto
 - `supabase-schema.sql`: estrutura de cofres, perfil e social com RLS
 - `script.js`: integracao Auth + banco + ranking + social
-- `perfil-publico.html`: página de perfil público (abrir por `ranking.html` > `Ver mais`)
+- `perfil.html?u=<id>`: modo de perfil p?blico usado por ranking, notifica??es e intera??es sociais

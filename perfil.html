@@ -137,9 +137,60 @@
             <a class="btn btn-primary" href="personalizacao.html">Personalizar perfil</a>
             <a class="btn btn-ghost" href="configuracoes.html">Abrir configurações</a>
             <a class="btn btn-ghost" href="ranking.html">Ver ranking global</a>
-            <a class="btn btn-ghost" href="perfil-publico.html">Abrir perfil público</a>
           </div>
         </article>
+      </div>
+    </section>
+
+
+    <section id="publicProfileRoot" class="section reveal visible hidden">
+      <div class="section-head">
+        <h2>Perfil p?blico</h2>
+        <p id="publicProfileHeaderCopy">Informa??es sociais do usu?rio.</p>
+      </div>
+
+      <div class="public-profile-grid">
+        <article id="publicProfileCard" class="profile-preview public-profile-card" data-decoration="glow">
+          <div class="profile-preview-banner" aria-hidden="true"></div>
+          <p class="profile-preview-label">Perfil</p>
+          <div class="profile-preview-avatar-wrap">
+            <img id="publicProfileAvatar" class="profile-preview-avatar" src="" alt="Foto do perfil" />
+          </div>
+          <h3 id="publicProfileName" class="profile-preview-name">Usu?rio</h3>
+          <div id="publicProfileBadges" class="profile-badge-list hidden" aria-live="polite"></div>
+          <p id="publicProfileTagline" class="profile-preview-tagline">Blindagem financeira personalizada</p>
+          <p id="publicProfileMeta" class="profile-preview-meta">Conta criada em: -</p>
+
+          <div class="public-stats-grid">
+            <div class="public-stat-box"><span>Seguidores</span><strong id="publicFollowersCount">0</strong></div>
+            <div class="public-stat-box"><span>Seguindo</span><strong id="publicFollowingCount">0</strong></div>
+            <div class="public-stat-box"><span>Amigos</span><strong id="publicFriendsCount">0</strong></div>
+            <div class="public-stat-box"><span>Metas batidas</span><strong id="publicGoalsCount">0</strong></div>
+          </div>
+        </article>
+
+        <div class="panel">
+          <div id="publicProfileActions" class="public-actions hidden">
+            <button id="followUserBtn" class="btn btn-primary" type="button">Seguir</button>
+            <button id="friendActionBtn" class="btn btn-ghost" type="button">Adicionar amigo</button>
+          </div>
+          <p id="publicProfileFeedback" class="feedback" aria-live="polite"></p>
+          <h3 class="public-section-title">Conquistas e trof?us</h3>
+          <div id="publicAchievementsList" class="achievements-grid" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <div id="publicChatPanel" class="panel public-chat hidden">
+        <div class="section-head">
+          <h3>Conversa entre amigos</h3>
+          <p id="publicChatStatus">Dispon?vel apenas quando h? amizade aceita.</p>
+        </div>
+        <div id="publicChatMessages" class="chat-messages" aria-live="polite"></div>
+        <form id="publicChatForm" class="chat-form" novalidate>
+          <label>Mensagem<textarea id="publicChatInput" placeholder="Escreva uma mensagem..." required></textarea></label>
+          <button class="btn btn-primary" type="submit">Enviar</button>
+        </form>
+        <p id="publicChatFeedback" class="feedback" aria-live="polite"></p>
       </div>
     </section>
   </main>

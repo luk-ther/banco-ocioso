@@ -20,7 +20,6 @@ const AUTH_REQUIRED_PAGES = new Set([
   "configuracoes.html",
   "personalizacao.html",
   "ranking.html",
-  "perfil-publico.html",
 ]);
 const PROFILE_THEME_KEYS = [
   "neon",
@@ -292,6 +291,14 @@ let presenceHeartbeatTimer = null;
 let presenceVisibilityBound = false;
 let presencePagehideBound = false;
 let publicChatPollInFlight = false;
+let socialRealtimeChannel = null;
+let socialRealtimeRefreshTimer = null;
+let socialRealtimeRefreshState = {
+  notifications: false,
+  inbox: false,
+  publicProfile: false,
+  publicChat: false,
+};
 let appLoadingNode = null;
 let appLoadingMessageNode = null;
 let appLoadingHideTimer = null;
@@ -366,6 +373,68 @@ function redirectAuthToggleToProfile() {
   }
   window.location.assign(PROFILE_PAGE);
   return true;
+}
+
+function getRequestedProfileUserId() {
+  try {
+    return String(new URLSearchParams(window.location.search).get("u") || "").trim();
+  } catch (_error) {
+    return "";
+  }
+}
+
+function shouldUsePublicProfileView() {
+  if (getCurrentPageName() !== PROFILE_PAGE) {
+    return false;
+  }
+  const targetId = getRequestedProfileUserId();
+  if (!targetId) {
+    return false;
+  }
+  return !currentUser || targetId !== String(currentUser.id);
+}
+
+function buildUnifiedProfileHref(userId) {
+  const safeUserId = String(userId || "").trim();
+  if (!safeUserId) {
+    return PROFILE_PAGE;
+  }
+  if (currentUser && safeUserId === String(currentUser.id)) {
+    return PROFILE_PAGE;
+  }
+  return `${PROFILE_PAGE}?u=${encodeURIComponent(safeUserId)}`;
+}
+
+function bindChatSubmitOnEnter(inputNode, formNode) {
+  if (!(inputNode instanceof HTMLElement) || !(formNode instanceof HTMLFormElement)) {
+    return;
+  }
+  if (inputNode.dataset.enterSubmitBound === "1") {
+    return;
+  }
+
+  inputNode.dataset.enterSubmitBound = "1";
+  inputNode.addEventListener("keydown", (event) => {
+    if (
+      event.defaultPrevented ||
+      event.key !== "Enter" ||
+      event.shiftKey ||
+      event.ctrlKey ||
+      event.altKey ||
+      event.metaKey ||
+      event.isComposing ||
+      event.repeat
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    if (typeof formNode.requestSubmit === "function") {
+      formNode.requestSubmit();
+      return;
+    }
+    formNode.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  });
 }
 
 function hasSeenOnboarding() {
@@ -505,8 +574,6 @@ function getAppLoadingMessage(pageName = getCurrentPageName(), hasUser = Boolean
       return "Buscando o ranking global...";
     case "configuracoes.html":
       return "Aplicando suas configuracoes...";
-    case "perfil-publico.html":
-      return "Abrindo o perfil publico...";
     default:
       return "Sincronizando sua conta...";
   }
@@ -692,6 +759,7 @@ async function init() {
     if (!currentUser) {
       resetDeviceNotificationCaches();
       stopDeviceNotificationPolling();
+      stopSocialRealtime();
       stopPresenceHeartbeat();
     }
 
@@ -713,6 +781,7 @@ async function init() {
       startPresenceHeartbeat();
       await pollDeviceNotificationsOnce();
       startDeviceNotificationPolling();
+      startSocialRealtime();
     }
     updateProfileHubUI();
 
@@ -726,6 +795,7 @@ async function init() {
       showAppLoading(getAppLoadingMessage(activePage, Boolean(session?.user)));
 
       try {
+        stopSocialRealtime();
         currentUser = session?.user || null;
 
         if (activePage === LOGIN_PAGE) {
@@ -753,6 +823,7 @@ async function init() {
         if (!currentUser) {
           resetDeviceNotificationCaches();
           stopDeviceNotificationPolling();
+          stopSocialRealtime();
           stopPresenceHeartbeat();
         }
 
@@ -776,6 +847,7 @@ async function init() {
           startPresenceHeartbeat();
           await pollDeviceNotificationsOnce();
           startDeviceNotificationPolling();
+          startSocialRealtime();
         }
         updateAuthUI();
         updateProfileHubUI();
@@ -2108,7 +2180,7 @@ function renderRanking(items) {
     const fontFamily = getNameFontFamily(safe.name_font);
     const goals = Number.isFinite(Number(safe.goals_completed)) ? Math.max(0, Math.floor(Number(safe.goals_completed))) : 0;
     const avatarSrc = escapeAttr(getAvatarSrc(safe));
-    const profileHref = `perfil-publico.html?u=${encodeURIComponent(safe.user_id)}`;
+    const profileHref = buildUnifiedProfileHref(safe.user_id);
     const statusLabel = getPresenceStatusLabel(getComputedPresenceStatus(safe));
     return `
       <article class="ranking-item" tabindex="0" role="button" aria-label="Ver perfil de ${escapeHTML(safe.display_name)}" data-user-id="${safe.user_id}">
@@ -2338,6 +2410,7 @@ function setupPublicProfileUI() {
   }
 
   if (publicChatForm && publicChatInput) {
+    bindChatSubmitOnEnter(publicChatInput, publicChatForm);
     publicChatForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (!currentUser || !publicProfileTargetId || !socialRelationState.friendshipId) {
@@ -2445,9 +2518,12 @@ async function loadPublicProfilePageData() {
     return;
   }
 
-  const targetId = String(new URLSearchParams(window.location.search).get("u") || "").trim();
-  if (!targetId) {
-    resetPublicProfileUI("Perfil não informado. Abra um usuário pelo ranking.");
+  const targetId = getRequestedProfileUserId();
+  const usePublicProfileView = shouldUsePublicProfileView();
+  publicProfileRoot.classList.toggle("hidden", !usePublicProfileView);
+
+  if (!usePublicProfileView) {
+    resetPublicProfileUI("");
     return;
   }
   publicProfileTargetId = targetId;
@@ -4124,6 +4200,293 @@ function trimKnownNotificationIds(sourceSet, maxSize = 2400, keepSize = 1200) {
   return new Set(Array.from(sourceSet).slice(-keepSize));
 }
 
+function stopSocialRealtime() {
+  if (socialRealtimeRefreshTimer) {
+    clearTimeout(socialRealtimeRefreshTimer);
+    socialRealtimeRefreshTimer = null;
+  }
+
+  socialRealtimeRefreshState = {
+    notifications: false,
+    inbox: false,
+    publicProfile: false,
+    publicChat: false,
+  };
+
+  if (!socialRealtimeChannel) {
+    return;
+  }
+
+  if (supabaseClient && typeof supabaseClient.removeChannel === "function") {
+    try {
+      const removal = supabaseClient.removeChannel(socialRealtimeChannel);
+      if (removal && typeof removal.catch === "function") {
+        removal.catch(() => {});
+      }
+    } catch (_error) {
+      // Ignora falha de limpeza silenciosamente.
+    }
+  }
+
+  socialRealtimeChannel = null;
+}
+
+function scheduleSocialRealtimeRefresh(options = {}) {
+  if (!currentUser) {
+    return;
+  }
+
+  socialRealtimeRefreshState.notifications = socialRealtimeRefreshState.notifications || Boolean(options.notifications);
+  socialRealtimeRefreshState.inbox = socialRealtimeRefreshState.inbox || Boolean(options.inbox);
+  socialRealtimeRefreshState.publicProfile = socialRealtimeRefreshState.publicProfile || Boolean(options.publicProfile);
+  socialRealtimeRefreshState.publicChat = socialRealtimeRefreshState.publicChat || Boolean(options.publicChat);
+
+  if (socialRealtimeRefreshTimer) {
+    return;
+  }
+
+  socialRealtimeRefreshTimer = window.setTimeout(() => {
+    socialRealtimeRefreshTimer = null;
+    void flushSocialRealtimeRefresh();
+  }, 220);
+}
+
+async function flushSocialRealtimeRefresh() {
+  const pending = { ...socialRealtimeRefreshState };
+  socialRealtimeRefreshState = {
+    notifications: false,
+    inbox: false,
+    publicProfile: false,
+    publicChat: false,
+  };
+
+  const tasks = [];
+  if (pending.notifications && notificationsRoot) {
+    tasks.push(loadNotificationsPageData());
+  }
+  if (pending.inbox && inboxPageRoot) {
+    tasks.push(loadInboxPageData());
+  }
+  if (pending.publicProfile && publicProfileRoot && shouldUsePublicProfileView()) {
+    tasks.push(loadPublicProfilePageData());
+  }
+  if (pending.publicChat && publicChatPanel && !publicChatPanel.classList.contains("hidden")) {
+    tasks.push(loadPublicChatMessages());
+  }
+
+  if (tasks.length === 0) {
+    return;
+  }
+
+  await Promise.allSettled(tasks);
+}
+
+function isViewedPublicProfileUser(userId) {
+  const safeUserId = String(userId || "").trim();
+  if (!safeUserId || !publicProfileTargetId) {
+    return false;
+  }
+  return safeUserId === String(publicProfileTargetId);
+}
+
+async function handleRealtimeSocialMessageInsert(row) {
+  if (!currentUser || !row) {
+    return;
+  }
+
+  const senderId = String(row.sender_id || "");
+  const receiverId = String(row.receiver_id || "");
+  const currentUserId = String(currentUser.id || "");
+  if (!senderId || !receiverId || (senderId !== currentUserId && receiverId !== currentUserId)) {
+    return;
+  }
+
+  const otherUserId = senderId === currentUserId ? receiverId : senderId;
+
+  if (receiverId === currentUserId) {
+    const [profileMap, friendIds] = await Promise.all([
+      loadProfilesByIds([senderId]),
+      loadFriendIdsForCurrentUser(),
+    ]);
+    await trackAndNotifyIncomingMessages([row], profileMap, friendIds);
+  }
+
+  scheduleSocialRealtimeRefresh({
+    notifications: receiverId === currentUserId,
+    inbox: true,
+    publicProfile: isViewedPublicProfileUser(otherUserId),
+    publicChat: otherUserId === String(publicProfileTargetId || ""),
+  });
+}
+
+async function handleRealtimeFriendRequestInsert(row) {
+  if (!currentUser || !row) {
+    return;
+  }
+
+  const requesterId = String(row.requester_id || "");
+  const addresseeId = String(row.addressee_id || "");
+  const currentUserId = String(currentUser.id || "");
+  if (!requesterId || !addresseeId || (requesterId !== currentUserId && addresseeId !== currentUserId)) {
+    return;
+  }
+
+  if (addresseeId === currentUserId && String(row.status || "pending") === "pending") {
+    const profileMap = await loadProfilesByIds([requesterId]);
+    await trackAndNotifyFriendRequests([row], profileMap);
+  }
+
+  scheduleSocialRealtimeRefresh({
+    notifications: addresseeId === currentUserId,
+    publicProfile: isViewedPublicProfileUser(requesterId) || isViewedPublicProfileUser(addresseeId),
+  });
+}
+
+function handleRealtimeFriendRequestUpdate(row) {
+  if (!currentUser || !row) {
+    return;
+  }
+
+  const requesterId = String(row.requester_id || "");
+  const addresseeId = String(row.addressee_id || "");
+  const currentUserId = String(currentUser.id || "");
+  if (!requesterId || !addresseeId || (requesterId !== currentUserId && addresseeId !== currentUserId)) {
+    return;
+  }
+
+  scheduleSocialRealtimeRefresh({
+    notifications: addresseeId === currentUserId,
+    publicProfile: isViewedPublicProfileUser(requesterId) || isViewedPublicProfileUser(addresseeId),
+  });
+}
+
+async function handleRealtimeFollowInsert(row) {
+  if (!currentUser || !row) {
+    return;
+  }
+
+  const followerId = String(row.follower_id || "");
+  const followedId = String(row.followed_id || "");
+  const currentUserId = String(currentUser.id || "");
+  if (!followerId || !followedId || (followerId !== currentUserId && followedId !== currentUserId)) {
+    return;
+  }
+
+  if (followedId === currentUserId) {
+    const profileMap = await loadProfilesByIds([followerId]);
+    await trackAndNotifyNewFollowers([row], profileMap);
+  }
+
+  scheduleSocialRealtimeRefresh({
+    notifications: followedId === currentUserId,
+    publicProfile: isViewedPublicProfileUser(followerId) || isViewedPublicProfileUser(followedId),
+  });
+}
+
+async function handleRealtimeFriendshipInsert(row) {
+  if (!currentUser || !row) {
+    return;
+  }
+
+  const currentUserId = String(currentUser.id || "");
+  const userA = String(row.user_a || "");
+  const userB = String(row.user_b || "");
+  if (!userA || !userB || (userA !== currentUserId && userB !== currentUserId)) {
+    return;
+  }
+
+  const peerId = getFriendshipPeerId(row, currentUserId);
+  const profileMap = await loadProfilesByIds([peerId]);
+  await trackAndNotifyNewFriendships([row], profileMap);
+
+  scheduleSocialRealtimeRefresh({
+    notifications: true,
+    inbox: true,
+    publicProfile: isViewedPublicProfileUser(peerId),
+    publicChat: peerId === String(publicProfileTargetId || ""),
+  });
+}
+
+function startSocialRealtime() {
+  stopSocialRealtime();
+
+  if (!supabaseReady || !currentUser || !supabaseClient || typeof supabaseClient.channel !== "function") {
+    return;
+  }
+
+  const currentUserId = String(currentUser.id || "").trim();
+  if (!currentUserId) {
+    return;
+  }
+
+  socialRealtimeChannel = supabaseClient
+    .channel(`bo-social-live-${currentUserId}`)
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "social_messages", filter: `receiver_id=eq.${currentUserId}` },
+      (payload) => {
+        void handleRealtimeSocialMessageInsert(payload?.new || null);
+      }
+    )
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "social_messages", filter: `sender_id=eq.${currentUserId}` },
+      (payload) => {
+        void handleRealtimeSocialMessageInsert(payload?.new || null);
+      }
+    )
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "social_friend_requests", filter: `addressee_id=eq.${currentUserId}` },
+      (payload) => {
+        void handleRealtimeFriendRequestInsert(payload?.new || null);
+      }
+    )
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "social_friend_requests", filter: `requester_id=eq.${currentUserId}` },
+      (payload) => {
+        void handleRealtimeFriendRequestInsert(payload?.new || null);
+      }
+    )
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "social_friend_requests", filter: `addressee_id=eq.${currentUserId}` },
+      (payload) => {
+        handleRealtimeFriendRequestUpdate(payload?.new || null);
+      }
+    )
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "social_friend_requests", filter: `requester_id=eq.${currentUserId}` },
+      (payload) => {
+        handleRealtimeFriendRequestUpdate(payload?.new || null);
+      }
+    )
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "social_follows", filter: `followed_id=eq.${currentUserId}` },
+      (payload) => {
+        void handleRealtimeFollowInsert(payload?.new || null);
+      }
+    )
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "social_friendships", filter: `user_a=eq.${currentUserId}` },
+      (payload) => {
+        void handleRealtimeFriendshipInsert(payload?.new || null);
+      }
+    )
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "social_friendships", filter: `user_b=eq.${currentUserId}` },
+      (payload) => {
+        void handleRealtimeFriendshipInsert(payload?.new || null);
+      }
+    )
+    .subscribe();
+}
+
 async function loadProfilesByIds(userIds) {
   if (!supabaseReady || !Array.isArray(userIds)) {
     return new Map();
@@ -4209,7 +4572,7 @@ function buildNotificationItemHTML(item) {
   const profile = getProfileFromMap(item?.profileMap, item?.profile?.user_id || item?.userId);
   const safeKind = String(item?.kind || "generic").trim().toLowerCase();
   const when = formatNotificationTimestamp(item?.sortAt || item?.createdAt);
-  const profileHref = profile.user_id ? `perfil-publico.html?u=${encodeURIComponent(profile.user_id)}` : "";
+  const profileHref = profile.user_id ? buildUnifiedProfileHref(profile.user_id) : "";
   let bodyText = "";
   let previewText = "";
   let actionsHTML = "";
@@ -4590,6 +4953,14 @@ function updateProfileHubUI() {
     return;
   }
 
+  const usePublicProfileView = shouldUsePublicProfileView();
+  profileHubRoot.classList.toggle("hidden", usePublicProfileView);
+  if (usePublicProfileView) {
+    profileHubGuest.classList.add("hidden");
+    profileHubUser.classList.add("hidden");
+    return;
+  }
+
   if (currentUser) {
     profileHubGuest.classList.add("hidden");
     profileHubUser.classList.remove("hidden");
@@ -4945,6 +5316,7 @@ function setupInboxUI() {
   }
 
   if (inboxMessageForm && inboxMessageInput) {
+    bindChatSubmitOnEnter(inboxMessageInput, inboxMessageForm);
     inboxMessageForm.addEventListener("submit", async (event) => {
       event.preventDefault();
 

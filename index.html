@@ -26,8 +26,16 @@
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="dns-prefetch" href="//fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&family=Poppins:wght@400;600;700&family=Sora:wght@400;600;700;800&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
+
+  <!--Compartilhamento-->
+    <meta property="og:title" content="Banco Ocioso">
+    <meta property="og:description" content="Banco Ocioso: área de cofres para registrar metas e aportes com foco em autocontrole.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://luk-ther.github.io/banco-ocioso/">
+    <meta property="og:image" content="https://raw.githubusercontent.com/luk-ther/img/main/ChatGPT%20Image%203%20de%20mar.%20de%202026%2C%2000_45_02.png">
 </head>
 <body>
   <div class="bg-grid" aria-hidden="true"></div>
@@ -241,7 +249,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
-  <script src="script.js"></script>
+  <script src="script.js" defer></script>
   <script>
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js');
