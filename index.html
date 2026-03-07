@@ -6,18 +6,22 @@
   <title>Banco Ocioso</title>
   <meta name="description" content="Banco Ocioso: área de cofres para registrar metas e aportes com foco em autocontrole." />
   <meta name="theme-color" content="#000000" />
+  <link rel="preload" href="styles.css" as="style" />
+  <link rel="preload" href="script.js" as="script" />
   <meta name="google-site-verification" content="--NrU3AOJypb3s5IiwOKW8esZflYbFOYIK0_5mh947M" />
-  <script>
-    (() => {
-      try {
-        document.documentElement.classList.add(
-          sessionStorage.getItem("bo_initial_loading_seen_v1") === "1" ? "app-shell-ready" : "app-shell-pending"
-        );
-      } catch (_error) {
-        document.documentElement.classList.add("app-shell-pending");
-      }
-    })();
-  </script>
+  <meta name="googlebot" content="index,follow">
+  <link rel="canonical" href="https://luk-ther.github.io/banco-ocioso/index.html">
+    <script>
+        (() => {
+          try {
+            document.documentElement.classList.add(
+              sessionStorage.getItem("bo_initial_loading_seen_v1") === "1" ? "app-shell-ready" : "app-shell-pending"
+            );
+          } catch (_error) {
+            document.documentElement.classList.add("app-shell-pending");
+          }
+        })();
+    </script>
   <link rel="icon" type="image/png" href="img/logo.png" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />

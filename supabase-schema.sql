@@ -18,8 +18,8 @@ create table if not exists public.user_profiles (
   presence_status text not null default 'online' check (presence_status in ('online', 'dnd', 'away', 'offline')),
   last_seen_at timestamptz not null default now(),
   is_verified boolean not null default false,
-  owned_badges text[] not null default array['first_users'],
-  equipped_badges text[] not null default array['first_users'],
+  owned_badges text[] not null default array[]::text[],
+  equipped_badges text[] not null default array[]::text[],
   allow_friend_requests boolean not null default true,
   allow_followers boolean not null default true,
   show_in_ranking boolean not null default true,
@@ -69,17 +69,32 @@ create table if not exists public.social_messages (
   constraint social_messages_no_self check (sender_id <> receiver_id)
 );
 
+create table if not exists public.badge_inventory (
+  badge_key text primary key,
+  remaining_slots integer not null check (remaining_slots >= 0),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.badge_reservations (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  badge_key text not null,
+  granted_at timestamptz not null default now(),
+  primary key (user_id, badge_key)
+);
+
 alter table public.user_profiles add column if not exists avatar_url text not null default '';
 alter table public.user_profiles add column if not exists bio text not null default '';
 alter table public.user_profiles add column if not exists banner_url text not null default '';
 alter table public.user_profiles add column if not exists presence_status text not null default 'online';
 alter table public.user_profiles add column if not exists last_seen_at timestamptz not null default now();
 alter table public.user_profiles add column if not exists is_verified boolean not null default false;
-alter table public.user_profiles add column if not exists owned_badges text[] not null default array['first_users'];
-alter table public.user_profiles add column if not exists equipped_badges text[] not null default array['first_users'];
+alter table public.user_profiles add column if not exists owned_badges text[] not null default array[]::text[];
+alter table public.user_profiles add column if not exists equipped_badges text[] not null default array[]::text[];
 alter table public.user_profiles add column if not exists allow_friend_requests boolean not null default true;
 alter table public.user_profiles add column if not exists allow_followers boolean not null default true;
 alter table public.user_profiles add column if not exists show_in_ranking boolean not null default true;
+alter table public.user_profiles alter column owned_badges set default array[]::text[];
+alter table public.user_profiles alter column equipped_badges set default array[]::text[];
 
 alter table public.user_profiles drop constraint if exists user_profiles_theme_key_check;
 alter table public.user_profiles add constraint user_profiles_theme_key_check
@@ -118,7 +133,49 @@ as $$
   where nullif(trim(item), '') is not null
 $$;
 
-create or replace function public.sync_user_profile_verified_badge()
+insert into public.badge_inventory (badge_key, remaining_slots)
+values ('first_users', 9)
+on conflict (badge_key) do nothing;
+
+create or replace function public.reserve_limited_profile_badges()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  remaining_first_users integer;
+begin
+  insert into public.badge_inventory (badge_key, remaining_slots)
+  values ('first_users', 9)
+  on conflict (badge_key) do nothing;
+
+  select bi.remaining_slots
+  into remaining_first_users
+  from public.badge_inventory bi
+  where bi.badge_key = 'first_users'
+  for update;
+
+  if coalesce(remaining_first_users, 0) <= 0 then
+    return new;
+  end if;
+
+  insert into public.badge_reservations (user_id, badge_key)
+  values (new.id, 'first_users')
+  on conflict (user_id, badge_key) do nothing;
+
+  if found then
+    update public.badge_inventory
+    set remaining_slots = remaining_slots - 1,
+        updated_at = now()
+    where badge_key = 'first_users';
+  end if;
+
+  return new;
+end;
+$$;
+
+create or replace function public.sync_user_profile_badges()
 returns trigger
 language plpgsql
 security definer
@@ -126,7 +183,9 @@ set search_path = public, auth
 as $$
 declare
   has_verified_email boolean;
-  was_verified boolean;
+  had_verified_flag boolean;
+  had_first_users_badge boolean;
+  has_first_users_reservation boolean;
 begin
   select exists (
     select 1
@@ -136,13 +195,40 @@ begin
   )
   into has_verified_email;
 
-  was_verified := case
+  had_verified_flag := case
     when tg_op = 'UPDATE' then coalesce(old.is_verified, false)
     else false
   end;
 
-  new.owned_badges := public.unique_text_array(array_append(coalesce(new.owned_badges, array[]::text[]), 'first_users'));
-  new.is_verified := was_verified or has_verified_email;
+  had_first_users_badge := case
+    when tg_op = 'UPDATE' then 'first_users' = any(coalesce(old.owned_badges, array[]::text[]))
+    else false
+  end;
+
+  select exists (
+    select 1
+    from public.badge_reservations br
+    where br.user_id = new.user_id
+      and br.badge_key = 'first_users'
+  )
+  into has_first_users_reservation;
+
+  new.owned_badges := public.unique_text_array(
+    array(
+      select badge
+      from unnest(coalesce(new.owned_badges, array[]::text[])) as badge
+      where badge not in ('first_users', 'verified')
+    )
+  );
+
+  if had_first_users_badge or has_first_users_reservation then
+    new.owned_badges := public.unique_text_array(array_append(new.owned_badges, 'first_users'));
+    if tg_op = 'INSERT' and coalesce(array_length(new.equipped_badges, 1), 0) = 0 then
+      new.equipped_badges := array['first_users'];
+    end if;
+  end if;
+
+  new.is_verified := coalesce(new.is_verified, false) or had_verified_flag or has_verified_email;
 
   if new.is_verified then
     new.owned_badges := public.unique_text_array(array_append(new.owned_badges, 'verified'));
@@ -156,18 +242,20 @@ begin
     )
   );
 
-  if coalesce(array_length(new.equipped_badges, 1), 0) = 0 then
-    new.equipped_badges := array['first_users'];
-  end if;
-
   return new;
 end;
 $$;
 
+drop trigger if exists auth_users_reserve_badges on auth.users;
+create trigger auth_users_reserve_badges
+after insert on auth.users
+for each row execute function public.reserve_limited_profile_badges();
+
 drop trigger if exists user_profiles_sync_verified_badge on public.user_profiles;
-create trigger user_profiles_sync_verified_badge
+drop trigger if exists user_profiles_sync_badges on public.user_profiles;
+create trigger user_profiles_sync_badges
 before insert or update on public.user_profiles
-for each row execute function public.sync_user_profile_verified_badge();
+for each row execute function public.sync_user_profile_badges();
 
 update public.user_profiles up
 set is_verified = true
@@ -179,7 +267,8 @@ where exists (
 );
 
 update public.user_profiles
-set owned_badges = public.unique_text_array(array_append(coalesce(owned_badges, array[]::text[]), 'first_users'));
+set owned_badges = coalesce(owned_badges, array[]::text[]),
+    equipped_badges = coalesce(equipped_badges, array[]::text[]);
 
 update public.user_profiles up
 set owned_badges = public.unique_text_array(array_append(coalesce(up.owned_badges, array[]::text[]), 'verified')),
@@ -192,10 +281,7 @@ where exists (
 );
 
 update public.user_profiles
-set equipped_badges = case
-  when coalesce(array_length(filtered.badges, 1), 0) = 0 then array['first_users']
-  else filtered.badges
-end
+set equipped_badges = filtered.badges
 from (
   select
     up.user_id,

@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Banco Ocioso | Configurações</title>
   <meta name="description" content="Ajuste notificações, status social e preferências da conta no Banco Ocioso." />
+  <meta name="theme-color" content="#000000" />
+  <link rel="preload" href="styles.css" as="style" />
+  <link rel="preload" href="script.js" as="script" />
   <script>
     (() => {
       try {
@@ -48,7 +51,7 @@
       <div id="authPanel" class="auth-float-panel" aria-hidden="true">
         <div class="auth-head">
           <strong>Acesso da conta</strong>
-          <button id="authClose" class="auth-close" type="button" aria-label="Fechar login">×</button>
+          <button id="authClose" class="auth-close" type="button" aria-label="Fechar login">&times;</button>
         </div>
 
         <div id="authGuest" class="auth-panel">
@@ -122,8 +125,8 @@
           <div class="settings-stack">
             <article class="settings-toggle-card">
               <div>
-                <strong>Notificacoes do dispositivo</strong>
-                <p>Alertas reais no celular/desktop quando permitido pelo navegador.</p>
+                <strong>Notificações do dispositivo</strong>
+                <p>Alertas reais no celular e desktop quando permitido pelo navegador.</p>
               </div>
               <button class="settings-toggle-btn" type="button" data-setting-toggle="settingsSystemDeviceNotifications" aria-pressed="false">
                 <span class="settings-toggle-knob" aria-hidden="true"></span>
@@ -146,8 +149,8 @@
 
             <article class="settings-toggle-card">
               <div>
-                <strong>Notificar amizades</strong>
-                <p>Receber aviso de novas solicitacoes de amizade.</p>
+                <strong>Notificar social</strong>
+                <p>Receber aviso de seguidores novos, pedidos de amizade e amizades aceitas.</p>
               </div>
               <button class="settings-toggle-btn" type="button" data-setting-toggle="settingsSystemNotifyRequests" aria-pressed="false">
                 <span class="settings-toggle-knob" aria-hidden="true"></span>
@@ -159,7 +162,7 @@
             <article class="settings-toggle-card">
               <div>
                 <strong>Notificar metas</strong>
-                <p>Receber aviso quando uma meta for concluida.</p>
+                <p>Receber aviso quando uma meta for concluída.</p>
               </div>
               <button class="settings-toggle-btn" type="button" data-setting-toggle="settingsSystemNotifyGoals" aria-pressed="false">
                 <span class="settings-toggle-knob" aria-hidden="true"></span>
@@ -170,8 +173,8 @@
 
             <article class="settings-toggle-card">
               <div>
-                <strong>Reduzir animacoes</strong>
-                <p>Diminui transicoes para uma navegacao mais leve.</p>
+                <strong>Reduzir animações</strong>
+                <p>Diminui transições para uma navegação mais leve.</p>
               </div>
               <button class="settings-toggle-btn" type="button" data-setting-toggle="settingsSystemReduceMotion" aria-pressed="false">
                 <span class="settings-toggle-knob" aria-hidden="true"></span>
@@ -208,8 +211,8 @@
           <div class="settings-stack">
             <article class="settings-toggle-card">
               <div>
-                <strong>Solicitacoes de amizade</strong>
-                <p>Permite que pessoas enviem pedido para voce.</p>
+                <strong>Solicitações de amizade</strong>
+                <p>Permite que pessoas enviem pedido para você.</p>
               </div>
               <button class="settings-toggle-btn" type="button" data-setting-toggle="settingsAllowFriendRequests" aria-pressed="false">
                 <span class="settings-toggle-knob" aria-hidden="true"></span>
@@ -237,7 +240,7 @@
               </div>
               <button class="settings-toggle-btn" type="button" data-setting-toggle="settingsShowInRanking" aria-pressed="false">
                 <span class="settings-toggle-knob" aria-hidden="true"></span>
-                <span class="settings-toggle-state" data-on="Visivel" data-off="Oculto">Oculto</span>
+                <span class="settings-toggle-state" data-on="Visível" data-off="Oculto">Oculto</span>
               </button>
               <input id="settingsShowInRanking" class="settings-native-input" type="checkbox" />
             </article>

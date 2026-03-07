@@ -87,12 +87,12 @@ const PROFILE_BADGE_DEFINITIONS = {
     label: "Primeiros usuários",
     rarity: "rare",
     mark: "01",
-    description: "Insígnia reservada para os primeiros usuários da plataforma.",
+    description: "Insígnia reservada para um lote limitado dos primeiros usuários da plataforma.",
   },
 };
 const PROFILE_BADGE_KEYS = Object.keys(PROFILE_BADGE_DEFINITIONS);
-const DEFAULT_OWNED_BADGE_KEYS = ["first_users"];
-const DEFAULT_EQUIPPED_BADGE_KEYS = ["first_users"];
+const DEFAULT_OWNED_BADGE_KEYS = [];
+const DEFAULT_EQUIPPED_BADGE_KEYS = [];
 const PROFILE_NAME_FONT_KEYS = [
   "sora",
   "manrope",
@@ -280,8 +280,12 @@ let inboxPollInFlight = false;
 let notificationServiceWorkerRegistration = null;
 let knownIncomingMessageIds = new Set();
 let knownPendingRequestIds = new Set();
+let knownIncomingFollowerIds = new Set();
+let knownFriendshipIds = new Set();
 let messageNotificationPrimed = false;
 let requestNotificationPrimed = false;
+let followerNotificationPrimed = false;
+let friendshipNotificationPrimed = false;
 let deviceNotificationPollTimer = null;
 let deviceNotificationPollInFlight = false;
 let presenceHeartbeatTimer = null;
@@ -349,6 +353,11 @@ function isCompactAppViewport() {
 
 function shouldRedirectAuthToggleToProfile() {
   return isCompactAppViewport() && getCurrentPageName() !== PROFILE_PAGE;
+}
+
+function isAuthToggleInactivePage() {
+  const page = getCurrentPageName();
+  return page === "perfil.html" || page === "personalizacao.html";
 }
 
 function redirectAuthToggleToProfile() {
@@ -1689,12 +1698,12 @@ function applyProfileCardBanner(card, bannerUrl) {
 
   const safeBannerUrl = sanitizeBannerUrl(bannerUrl);
   if (!safeBannerUrl) {
-    bannerLayer.style.backgroundImage = "";
+    bannerLayer.style.removeProperty("--profile-banner-image");
     card.classList.remove("has-banner");
     return;
   }
 
-  bannerLayer.style.backgroundImage = `url("${safeBannerUrl}")`;
+  bannerLayer.style.setProperty("--profile-banner-image", `url("${safeBannerUrl}")`);
   card.classList.add("has-banner");
 }
 
@@ -4017,7 +4026,7 @@ function syncDeviceNotificationStatusUI() {
   }
 
   if (permission === "granted") {
-    deviceNotifyStatus.textContent = "Ativas no dispositivo. Você receberá alertas de mensagens e pedidos de amizade.";
+    deviceNotifyStatus.textContent = "Ativas no dispositivo. Você receberá alertas de mensagens, seguidores, amizades e pedidos.";
     deviceNotifyEnableBtn.textContent = "Ativado";
     deviceNotifyEnableBtn.disabled = true;
     return;
@@ -4100,8 +4109,164 @@ async function showDeviceNotification(title, options = {}) {
 function resetDeviceNotificationCaches() {
   knownIncomingMessageIds = new Set();
   knownPendingRequestIds = new Set();
+  knownIncomingFollowerIds = new Set();
+  knownFriendshipIds = new Set();
   messageNotificationPrimed = false;
   requestNotificationPrimed = false;
+  followerNotificationPrimed = false;
+  friendshipNotificationPrimed = false;
+}
+
+function trimKnownNotificationIds(sourceSet, maxSize = 2400, keepSize = 1200) {
+  if (!(sourceSet instanceof Set) || sourceSet.size <= maxSize) {
+    return sourceSet;
+  }
+  return new Set(Array.from(sourceSet).slice(-keepSize));
+}
+
+async function loadProfilesByIds(userIds) {
+  if (!supabaseReady || !Array.isArray(userIds)) {
+    return new Map();
+  }
+
+  const uniqueIds = Array.from(new Set(userIds.map((value) => String(value || "")).filter(Boolean)));
+  if (uniqueIds.length === 0) {
+    return new Map();
+  }
+
+  const { data, error } = await supabaseClient
+    .from("user_profiles")
+    .select("*")
+    .in("user_id", uniqueIds);
+
+  if (error) {
+    return new Map();
+  }
+
+  return new Map(
+    (Array.isArray(data) ? data : []).map((row) => {
+      const safe = normalizeProfile(row, null);
+      return [safe.user_id, safe];
+    })
+  );
+}
+
+function getProfileFromMap(profileMap, userId, fallbackName = "Usuário") {
+  const safeUserId = String(userId || "");
+  if (profileMap instanceof Map && profileMap.has(safeUserId)) {
+    return profileMap.get(safeUserId);
+  }
+  return normalizeProfile({ user_id: safeUserId, display_name: fallbackName }, null);
+}
+
+function getFriendshipPeerId(friendshipRow, userId = currentUser?.id) {
+  const safeUserId = String(userId || "");
+  const userA = String(friendshipRow?.user_a || "");
+  const userB = String(friendshipRow?.user_b || "");
+
+  if (!safeUserId) {
+    return userB || userA;
+  }
+  if (userA === safeUserId) {
+    return userB;
+  }
+  if (userB === safeUserId) {
+    return userA;
+  }
+  return userB || userA;
+}
+
+function formatNotificationTimestamp(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "-";
+  }
+
+  const parsed = Date.parse(raw);
+  if (!Number.isFinite(parsed)) {
+    return "-";
+  }
+
+  return new Date(parsed).toLocaleString("pt-BR");
+}
+
+function buildNotificationTypeLabel(kind) {
+  switch (String(kind || "").trim().toLowerCase()) {
+    case "message":
+      return "Mensagem";
+    case "request":
+      return "Pedido";
+    case "follow":
+      return "Seguidor";
+    case "friendship":
+      return "Amizade";
+    default:
+      return "Atualização";
+  }
+}
+
+function buildNotificationItemHTML(item) {
+  const profile = getProfileFromMap(item?.profileMap, item?.profile?.user_id || item?.userId);
+  const safeKind = String(item?.kind || "generic").trim().toLowerCase();
+  const when = formatNotificationTimestamp(item?.sortAt || item?.createdAt);
+  const profileHref = profile.user_id ? `perfil-publico.html?u=${encodeURIComponent(profile.user_id)}` : "";
+  let bodyText = "";
+  let previewText = "";
+  let actionsHTML = "";
+
+  switch (safeKind) {
+    case "request":
+      bodyText = "Enviou um pedido de amizade.";
+      actionsHTML = `
+        <button class="btn btn-primary" type="button" data-action="accept" data-request-id="${escapeAttr(item.requestId)}" data-requester-id="${escapeAttr(item.requesterId)}">Aceitar</button>
+        <button class="btn btn-ghost" type="button" data-action="reject" data-request-id="${escapeAttr(item.requestId)}" data-requester-id="${escapeAttr(item.requesterId)}">Recusar</button>
+        ${profileHref ? `<a class="btn btn-ghost" href="${escapeAttr(profileHref)}">Ver perfil</a>` : ""}
+      `;
+      break;
+    case "follow":
+      bodyText = "Começou a seguir o seu perfil.";
+      actionsHTML = profileHref
+        ? `<a class="btn btn-ghost" href="${escapeAttr(profileHref)}">Ver perfil</a>`
+        : "";
+      break;
+    case "friendship":
+      bodyText = "Agora faz parte da sua lista de amigos.";
+      actionsHTML = `
+        <a class="btn btn-ghost" href="chats.html">Abrir chats</a>
+        ${profileHref ? `<a class="btn btn-ghost" href="${escapeAttr(profileHref)}">Ver perfil</a>` : ""}
+      `;
+      break;
+    case "message":
+      bodyText = "Enviou uma nova mensagem.";
+      previewText = String(item?.content || "").trim();
+      if (previewText.length > 140) {
+        previewText = `${previewText.slice(0, 137)}...`;
+      }
+      actionsHTML = `
+        <a class="btn btn-ghost" href="chats.html">Abrir chat</a>
+        ${profileHref ? `<a class="btn btn-ghost" href="${escapeAttr(profileHref)}">Ver perfil</a>` : ""}
+      `;
+      break;
+    default:
+      bodyText = "Nova atualização na sua conta.";
+      break;
+  }
+
+  return `
+    <article class="notification-item notification-item--${escapeAttr(safeKind)}">
+      <img class="notification-avatar" src="${escapeAttr(getAvatarSrc(profile))}" alt="Foto de ${escapeHTML(profile.display_name)}" />
+      <div class="notification-content">
+        <div class="notification-head">
+          <span class="notification-type notification-type--${escapeAttr(safeKind)}">${escapeHTML(buildNotificationTypeLabel(safeKind))}</span>
+          <span class="notification-time">${escapeHTML(when)}</span>
+        </div>
+        <div class="notification-title">${buildDisplayNameWithBadgeHTML(profile)}</div>
+        <p class="vault-meta">${escapeHTML(bodyText)}</p>
+        ${previewText ? `<p class="notification-preview">${escapeHTML(previewText)}</p>` : ""}
+        ${actionsHTML ? `<div class="notification-actions">${actionsHTML}</div>` : ""}
+      </div>
+    </article>
+  `;
 }
 
 function startDeviceNotificationPolling() {
@@ -4135,70 +4300,88 @@ async function pollDeviceNotificationsOnce() {
 
   try {
     const friendIds = await loadFriendIdsForCurrentUser();
-    let profileMap = new Map();
+    const messagePromise = friendIds.length > 0
+      ? supabaseClient
+        .from("social_messages")
+        .select("id, sender_id, receiver_id, content, created_at")
+        .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
+        .order("created_at", { ascending: false })
+        .limit(180)
+      : Promise.resolve({ data: [], error: null });
 
-    if (friendIds.length > 0) {
-      const [profileRes, messageRes] = await Promise.all([
-        supabaseClient
-          .from("user_profiles")
-          .select("*")
-          .in("user_id", friendIds),
-        supabaseClient
-          .from("social_messages")
-          .select("id, sender_id, receiver_id, content, created_at")
-          .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
-          .order("created_at", { ascending: false })
-          .limit(180),
-      ]);
+    const [
+      messageRes,
+      requestRes,
+      followRes,
+      friendshipARes,
+      friendshipBRes,
+    ] = await Promise.all([
+      messagePromise,
+      supabaseClient
+        .from("social_friend_requests")
+        .select("id, requester_id, addressee_id, status, created_at, updated_at")
+        .eq("addressee_id", currentUser.id)
+        .eq("status", "pending")
+        .order("updated_at", { ascending: false })
+        .limit(100),
+      supabaseClient
+        .from("social_follows")
+        .select("id, follower_id, followed_id, created_at")
+        .eq("followed_id", currentUser.id)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      supabaseClient
+        .from("social_friendships")
+        .select("id, user_a, user_b, created_at")
+        .eq("user_a", currentUser.id)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      supabaseClient
+        .from("social_friendships")
+        .select("id, user_a, user_b, created_at")
+        .eq("user_b", currentUser.id)
+        .order("created_at", { ascending: false })
+        .limit(100),
+    ]);
 
-      profileMap = new Map(
-        (Array.isArray(profileRes?.data) ? profileRes.data : []).map((row) => {
-          const safe = normalizeProfile(row, null);
-          return [safe.user_id, safe];
-        })
-      );
+    const safeRequests = requestRes?.error ? [] : (Array.isArray(requestRes?.data) ? requestRes.data : []);
+    const safeFollows = followRes?.error ? [] : (Array.isArray(followRes?.data) ? followRes.data : []);
+    const safeFriendships = [
+      ...(friendshipARes?.error ? [] : (Array.isArray(friendshipARes?.data) ? friendshipARes.data : [])),
+      ...(friendshipBRes?.error ? [] : (Array.isArray(friendshipBRes?.data) ? friendshipBRes.data : [])),
+    ];
 
-      if (!messageRes?.error) {
-        await trackAndNotifyIncomingMessages(
-          Array.isArray(messageRes.data) ? messageRes.data : [],
-          profileMap,
-          friendIds
-        );
+    const relatedIds = new Set(friendIds);
+    safeRequests.forEach((item) => {
+      if (item?.requester_id) {
+        relatedIds.add(String(item.requester_id));
       }
+    });
+    safeFollows.forEach((item) => {
+      if (item?.follower_id) {
+        relatedIds.add(String(item.follower_id));
+      }
+    });
+    safeFriendships.forEach((item) => {
+      const peerId = getFriendshipPeerId(item, currentUser.id);
+      if (peerId) {
+        relatedIds.add(peerId);
+      }
+    });
+
+    const profileMap = await loadProfilesByIds(Array.from(relatedIds));
+
+    if (!messageRes?.error) {
+      await trackAndNotifyIncomingMessages(
+        Array.isArray(messageRes?.data) ? messageRes.data : [],
+        profileMap,
+        friendIds
+      );
     }
 
-    const { data: requestRows, error: requestError } = await supabaseClient
-      .from("social_friend_requests")
-      .select("id, requester_id, addressee_id, status, created_at, updated_at")
-      .eq("addressee_id", currentUser.id)
-      .eq("status", "pending")
-      .order("updated_at", { ascending: false })
-      .limit(100);
-
-    if (requestError) {
-      return;
-    }
-
-    const safeRequests = Array.isArray(requestRows) ? requestRows : [];
-    if (safeRequests.length === 0) {
-      await trackAndNotifyFriendRequests([], new Map());
-      return;
-    }
-
-    const requesterIds = Array.from(new Set(safeRequests.map((item) => String(item.requester_id || "")).filter(Boolean)));
-    const { data: requesterProfiles } = await supabaseClient
-      .from("user_profiles")
-      .select("*")
-      .in("user_id", requesterIds);
-
-    const requestProfileMap = new Map(
-      (Array.isArray(requesterProfiles) ? requesterProfiles : []).map((row) => {
-        const safe = normalizeProfile(row, null);
-        return [safe.user_id, safe];
-      })
-    );
-
-    await trackAndNotifyFriendRequests(safeRequests, requestProfileMap);
+    await trackAndNotifyFriendRequests(safeRequests, profileMap);
+    await trackAndNotifyNewFollowers(safeFollows, profileMap);
+    await trackAndNotifyNewFriendships(safeFriendships, profileMap);
   } finally {
     deviceNotificationPollInFlight = false;
   }
@@ -4258,8 +4441,7 @@ async function trackAndNotifyIncomingMessages(messageRows, profileMap, friendIds
   }
 
   if (knownIncomingMessageIds.size > 2500) {
-    const ids = Array.from(knownIncomingMessageIds).slice(-1200);
-    knownIncomingMessageIds = new Set(ids);
+    knownIncomingMessageIds = trimKnownNotificationIds(knownIncomingMessageIds);
   }
 }
 
@@ -4299,6 +4481,95 @@ async function trackAndNotifyFriendRequests(requestRows, profileMap) {
       knownPendingRequestIds.delete(id);
     }
   });
+
+  if (knownPendingRequestIds.size > 2500) {
+    knownPendingRequestIds = trimKnownNotificationIds(knownPendingRequestIds);
+  }
+}
+
+async function trackAndNotifyNewFollowers(followRows, profileMap) {
+  if (!currentUser || !Array.isArray(followRows)) {
+    return;
+  }
+
+  const currentIds = new Set(followRows.map((row) => String(row?.id || "")).filter(Boolean));
+  if (!followerNotificationPrimed) {
+    currentIds.forEach((id) => knownIncomingFollowerIds.add(id));
+    followerNotificationPrimed = true;
+    return;
+  }
+
+  const sortedRows = [...followRows].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  for (const row of sortedRows) {
+    const id = String(row?.id || "");
+    if (!id || knownIncomingFollowerIds.has(id)) {
+      continue;
+    }
+    knownIncomingFollowerIds.add(id);
+    if (!getSystemNotificationRequestsEnabled()) {
+      continue;
+    }
+
+    const followerProfile = getProfileFromMap(profileMap, row?.follower_id);
+    await showDeviceNotification("Novo seguidor", {
+      body: `${followerProfile.display_name} começou a seguir seu perfil.`,
+      tag: `follow-${id}`,
+      data: { url: "perfil.html" },
+    });
+  }
+
+  knownIncomingFollowerIds.forEach((id) => {
+    if (!currentIds.has(id)) {
+      knownIncomingFollowerIds.delete(id);
+    }
+  });
+
+  if (knownIncomingFollowerIds.size > 2500) {
+    knownIncomingFollowerIds = trimKnownNotificationIds(knownIncomingFollowerIds);
+  }
+}
+
+async function trackAndNotifyNewFriendships(friendshipRows, profileMap) {
+  if (!currentUser || !Array.isArray(friendshipRows)) {
+    return;
+  }
+
+  const currentIds = new Set(friendshipRows.map((row) => String(row?.id || "")).filter(Boolean));
+  if (!friendshipNotificationPrimed) {
+    currentIds.forEach((id) => knownFriendshipIds.add(id));
+    friendshipNotificationPrimed = true;
+    return;
+  }
+
+  const sortedRows = [...friendshipRows].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  for (const row of sortedRows) {
+    const id = String(row?.id || "");
+    if (!id || knownFriendshipIds.has(id)) {
+      continue;
+    }
+    knownFriendshipIds.add(id);
+    if (!getSystemNotificationRequestsEnabled()) {
+      continue;
+    }
+
+    const peerId = getFriendshipPeerId(row, currentUser.id);
+    const friendProfile = getProfileFromMap(profileMap, peerId);
+    await showDeviceNotification("Nova amizade", {
+      body: `Você e ${friendProfile.display_name} agora são amigos.`,
+      tag: `friendship-${id}`,
+      data: { url: "chats.html" },
+    });
+  }
+
+  knownFriendshipIds.forEach((id) => {
+    if (!currentIds.has(id)) {
+      knownFriendshipIds.delete(id);
+    }
+  });
+
+  if (knownFriendshipIds.size > 2500) {
+    knownFriendshipIds = trimKnownNotificationIds(knownFriendshipIds);
+  }
 }
 
 function setupProfileHubUI() {
@@ -5057,59 +5328,166 @@ async function loadNotificationsPageData() {
     return;
   }
 
-  const { data: requests, error } = await supabaseClient
-    .from("social_friend_requests")
-    .select("id, requester_id, addressee_id, status, created_at, updated_at")
-    .eq("addressee_id", currentUser.id)
-    .eq("status", "pending")
-    .order("updated_at", { ascending: false });
+  const friendIds = await loadFriendIdsForCurrentUser();
+  const messagePromise = friendIds.length > 0
+    ? supabaseClient
+      .from("social_messages")
+      .select("id, sender_id, receiver_id, content, created_at")
+      .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
+      .order("created_at", { ascending: false })
+      .limit(220)
+    : Promise.resolve({ data: [], error: null });
 
-  if (error) {
-    resetNotificationsUI(getFriendlySocialError(error, "Não foi possível carregar notificações."));
-    setNotificationsFeedback(getFriendlySocialError(error, "Não foi possível carregar notificações."), true);
+  const [
+    requestRes,
+    followRes,
+    friendshipARes,
+    friendshipBRes,
+    messageRes,
+  ] = await Promise.all([
+    supabaseClient
+      .from("social_friend_requests")
+      .select("id, requester_id, addressee_id, status, created_at, updated_at")
+      .eq("addressee_id", currentUser.id)
+      .eq("status", "pending")
+      .order("updated_at", { ascending: false })
+      .limit(80),
+    supabaseClient
+      .from("social_follows")
+      .select("id, follower_id, followed_id, created_at")
+      .eq("followed_id", currentUser.id)
+      .order("created_at", { ascending: false })
+      .limit(80),
+    supabaseClient
+      .from("social_friendships")
+      .select("id, user_a, user_b, created_at")
+      .eq("user_a", currentUser.id)
+      .order("created_at", { ascending: false })
+      .limit(80),
+    supabaseClient
+      .from("social_friendships")
+      .select("id, user_a, user_b, created_at")
+      .eq("user_b", currentUser.id)
+      .order("created_at", { ascending: false })
+      .limit(80),
+    messagePromise,
+  ]);
+
+  const firstError = requestRes?.error || followRes?.error || friendshipARes?.error || friendshipBRes?.error || messageRes?.error;
+  if (firstError) {
+    const friendly = getFriendlySocialError(firstError, "Não foi possível carregar notificações.");
+    resetNotificationsUI(friendly);
+    setNotificationsFeedback(friendly, true);
     return;
   }
 
-  const safeRequests = Array.isArray(requests) ? requests : [];
-  if (safeRequests.length === 0) {
-    await trackAndNotifyFriendRequests([], new Map());
-    notificationsList.innerHTML = "<article class=\"notification-item\"><p class=\"vault-meta\">Sem notificações novas no momento.</p></article>";
+  const safeRequests = Array.isArray(requestRes?.data) ? requestRes.data : [];
+  const safeFollows = Array.isArray(followRes?.data) ? followRes.data : [];
+  const safeFriendships = [
+    ...(Array.isArray(friendshipARes?.data) ? friendshipARes.data : []),
+    ...(Array.isArray(friendshipBRes?.data) ? friendshipBRes.data : []),
+  ];
+  const safeMessages = Array.isArray(messageRes?.data) ? messageRes.data : [];
+
+  const relatedIds = new Set(friendIds);
+  safeRequests.forEach((item) => {
+    if (item?.requester_id) {
+      relatedIds.add(String(item.requester_id));
+    }
+  });
+  safeFollows.forEach((item) => {
+    if (item?.follower_id) {
+      relatedIds.add(String(item.follower_id));
+    }
+  });
+  safeFriendships.forEach((item) => {
+    const peerId = getFriendshipPeerId(item, currentUser.id);
+    if (peerId) {
+      relatedIds.add(peerId);
+    }
+  });
+  safeMessages.forEach((item) => {
+    if (item?.sender_id && item.receiver_id === currentUser.id) {
+      relatedIds.add(String(item.sender_id));
+    }
+  });
+
+  const profileMap = await loadProfilesByIds(Array.from(relatedIds));
+
+  await trackAndNotifyIncomingMessages(safeMessages, profileMap, friendIds);
+  await trackAndNotifyFriendRequests(safeRequests, profileMap);
+  await trackAndNotifyNewFollowers(safeFollows, profileMap);
+  await trackAndNotifyNewFriendships(safeFriendships, profileMap);
+
+  const friendIdSet = new Set(friendIds);
+  const latestIncomingMessages = [];
+  const seenMessageSenders = new Set();
+  safeMessages.forEach((item) => {
+    const senderId = String(item?.sender_id || "");
+    if (
+      !item ||
+      item.receiver_id !== currentUser.id ||
+      !senderId ||
+      !friendIdSet.has(senderId) ||
+      seenMessageSenders.has(senderId)
+    ) {
+      return;
+    }
+    seenMessageSenders.add(senderId);
+    latestIncomingMessages.push(item);
+  });
+
+  const feedItems = [
+    ...safeRequests.map((item) => ({
+      kind: "request",
+      requestId: String(item.id || ""),
+      requesterId: String(item.requester_id || ""),
+      createdAt: item.created_at,
+      sortAt: item.updated_at || item.created_at,
+      userId: String(item.requester_id || ""),
+      profile: getProfileFromMap(profileMap, item.requester_id),
+      profileMap,
+    })),
+    ...safeFollows.map((item) => ({
+      kind: "follow",
+      createdAt: item.created_at,
+      sortAt: item.created_at,
+      userId: String(item.follower_id || ""),
+      profile: getProfileFromMap(profileMap, item.follower_id),
+      profileMap,
+    })),
+    ...safeFriendships.map((item) => {
+      const peerId = getFriendshipPeerId(item, currentUser.id);
+      return {
+        kind: "friendship",
+        createdAt: item.created_at,
+        sortAt: item.created_at,
+        userId: peerId,
+        profile: getProfileFromMap(profileMap, peerId),
+        profileMap,
+      };
+    }),
+    ...latestIncomingMessages.map((item) => ({
+      kind: "message",
+      createdAt: item.created_at,
+      sortAt: item.created_at,
+      userId: String(item.sender_id || ""),
+      content: String(item.content || ""),
+      profile: getProfileFromMap(profileMap, item.sender_id),
+      profileMap,
+    })),
+  ].sort((a, b) => new Date(b.sortAt || 0).getTime() - new Date(a.sortAt || 0).getTime());
+
+  if (feedItems.length === 0) {
+    notificationsList.innerHTML = "<article class=\"notification-item notification-item--empty\"><p class=\"vault-meta\">Sem notificações novas no momento.</p></article>";
     setNotificationsFeedback("");
     return;
   }
 
-  const requesterIds = Array.from(new Set(safeRequests.map((item) => String(item.requester_id)).filter(Boolean)));
-  const { data: profilesData } = await supabaseClient
-    .from("user_profiles")
-    .select("*")
-    .in("user_id", requesterIds);
-
-  const profileMap = new Map(
-    (Array.isArray(profilesData) ? profilesData : []).map((row) => {
-      const safe = normalizeProfile(row, null);
-      return [safe.user_id, safe];
-    })
-  );
-
-  await trackAndNotifyFriendRequests(safeRequests, profileMap);
-
-  notificationsList.innerHTML = safeRequests.map((item) => {
-    const profile = profileMap.get(String(item.requester_id)) || normalizeProfile({ user_id: item.requester_id, display_name: "Usuário" }, null);
-    const when = item.created_at ? new Date(item.created_at).toLocaleString("pt-BR") : "-";
-    return `
-      <article class="notification-item">
-        <img class="notification-avatar" src="${escapeAttr(getAvatarSrc(profile))}" alt="Foto de ${escapeHTML(profile.display_name)}" />
-        <div class="notification-content">
-          <strong>${escapeHTML(profile.display_name)}</strong>
-          <p class="vault-meta">Enviou pedido de amizade • ${when}</p>
-          <div class="notification-actions">
-            <button class="btn btn-primary" type="button" data-action="accept" data-request-id="${item.id}" data-requester-id="${item.requester_id}">Aceitar</button>
-            <button class="btn btn-ghost" type="button" data-action="reject" data-request-id="${item.id}" data-requester-id="${item.requester_id}">Recusar</button>
-          </div>
-        </div>
-      </article>
-    `;
-  }).join("");
+  notificationsList.innerHTML = feedItems
+    .slice(0, 40)
+    .map((item) => buildNotificationItemHTML(item))
+    .join("");
 
   setNotificationsFeedback("");
 }
@@ -5135,16 +5513,23 @@ async function handleNotificationAction(requestId, requesterId, action) {
 
   if (nextStatus === "accepted") {
     const [userA, userB] = canonicalPairIds(currentUser.id, requesterId);
-    const { error: friendshipError } = await supabaseClient
+    const { data: friendshipRow, error: friendshipError } = await supabaseClient
       .from("social_friendships")
       .upsert(
         { user_a: userA, user_b: userB, created_at: new Date().toISOString() },
         { onConflict: "user_a,user_b" }
-      );
+      )
+      .select("id")
+      .maybeSingle();
 
     if (friendshipError) {
       setNotificationsFeedback(getFriendlySocialError(friendshipError, "Amizade não foi criada."), true);
       return;
+    }
+
+    if (friendshipRow?.id) {
+      knownFriendshipIds.add(String(friendshipRow.id));
+      friendshipNotificationPrimed = true;
     }
   }
 
@@ -5337,6 +5722,18 @@ function setupAuthWidget() {
   }
 
   lockAuthToggleWidth();
+
+  if (isAuthToggleInactivePage()) {
+    authToggle.setAttribute("aria-disabled", "true");
+    authPanel.classList.remove("is-open");
+    authPanel.setAttribute("aria-hidden", "true");
+    authToggle.setAttribute("aria-expanded", "false");
+    authToggle.classList.remove("is-active");
+    authToggle.addEventListener("click", (event) => {
+      event.preventDefault();
+    });
+    return;
+  }
 
   authToggle.addEventListener("click", () => {
     if (redirectAuthToggleToProfile()) {

@@ -4,7 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Banco Ocioso | Notificações</title>
-  <meta name="description" content="Veja suas notificações e pedidos de amizade no Banco Ocioso." />
+  <meta name="description" content="Veja suas notificações, mensagens e pedidos de amizade no Banco Ocioso." />
+  <meta name="theme-color" content="#000000" />
+  <link rel="preload" href="styles.css" as="style" />
+  <link rel="preload" href="script.js" as="script" />
   <script>
     (() => {
       try {
@@ -48,7 +51,7 @@
       <div id="authPanel" class="auth-float-panel" aria-hidden="true">
         <div class="auth-head">
           <strong>Acesso da conta</strong>
-          <button id="authClose" class="auth-close" type="button" aria-label="Fechar login">×</button>
+          <button id="authClose" class="auth-close" type="button" aria-label="Fechar login">&times;</button>
         </div>
 
         <div id="authGuest" class="auth-panel">
@@ -106,7 +109,7 @@
     <section id="notificationsRoot" class="section reveal visible">
       <div class="section-head">
         <h2>Notificações</h2>
-        <p>Pedidos de amizade e atualizações sociais.</p>
+        <p>Mensagens, seguidores, amizades e pedidos de amizade em um só lugar.</p>
       </div>
 
       <div class="panel">
@@ -124,7 +127,7 @@
     </section>
   </main>
 
-<nav class="app-bottom-nav" aria-label="Navegação principal do app">
+  <nav class="app-bottom-nav" aria-label="Navegação principal do app">
     <a class="app-nav-item" href="index.html" aria-label="Cofres">
       <span class="app-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 9.5V20h16V9.5M2 10l10-8 10 8"/><path d="M9 20v-6h6v6"/></svg></span>
       <span class="app-nav-label">Cofres</span>

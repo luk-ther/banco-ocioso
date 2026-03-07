@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Banco Ocioso | Verificação de E-mail</title>
   <meta name="description" content="Confirmação de e-mail do Banco Ocioso." />
+  <meta name="theme-color" content="#000000" />
+  <link rel="preload" href="styles.css" as="style" />
+  <link rel="preload" href="script.js" as="script" />
   <link rel="icon" type="image/png" href="img/logo.png" />
   <style>
     :root {
@@ -123,7 +126,7 @@
       const client = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
       const { data } = await client.auth.getSession();
 
-      if (data?.session || hasAccessToken) {
+      if (data.session || hasAccessToken) {
         statusEl.classList.add("ok");
         statusEl.textContent = "E-mail verificado com sucesso. Agora você pode entrar na sua conta.";
       } else {

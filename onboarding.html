@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Banco Ocioso | Introdução</title>
   <meta name="description" content="Introdução em etapas do Banco Ocioso para configurar seu método de cofres com disciplina." />
+  <meta name="theme-color" content="#000000" />
+  <link rel="preload" href="styles.css" as="style" />
+  <link rel="preload" href="script.js" as="script" />
   <link rel="icon" type="image/png" href="img/logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -116,8 +119,8 @@
         if (!value) return "index.html";
         if (value.includes("://") || value.startsWith("//")) return "index.html";
         const normalized = value.replace(/^\//, "");
-        if (!/^[a-z0-9._/?#=&%-]+$/i.test(normalized)) return "index.html";
-        const page = normalized.split("?")[0].split("#")[0].toLowerCase();
+        if (!/^[a-z0-9._/#=&%-]+$/i.test(normalized)) return "index.html";
+        const page = normalized.split("")[0].split("#")[0].toLowerCase();
         if (!page.endsWith(".html") || page === "login.html" || page === "onboarding.html") {
           return "index.html";
         }
@@ -151,7 +154,7 @@
 
         if (nextBtn) {
           const last = currentIndex === slides.length - 1;
-          nextBtn.textContent = last ? "Concluir" : "Próximo";
+          nextBtn.textContent = last  "Concluir" : "Próximo";
         }
 
         if (dotsRoot) {
@@ -159,7 +162,7 @@
             .map((_, index) => `
               <button
                 type="button"
-                class="onboarding-dot ${index === currentIndex ? "is-active" : ""}"
+                class="onboarding-dot ${index === currentIndex  "is-active" : ""}"
                 data-index="${index}"
                 aria-label="Ir para etapa ${index + 1}"
               ></button>
