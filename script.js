@@ -114,7 +114,7 @@ const VERIFIED_BADGE_EMAILS = new Set(["luktheer@gmail.com"]);
 const VERIFIED_BADGE_LABEL = "Verificado";
 const PRESENCE_STATUS_LABELS = {
   online: "Online",
-  dnd: "Nao perturbe",
+  dnd: "Não perturbe",
   away: "Ausente",
   offline: "Offline",
 };
@@ -558,7 +558,7 @@ function runWhenIdle(task, timeout = 1200) {
 function getAppLoadingMessage(pageName = getCurrentPageName(), hasUser = Boolean(currentUser)) {
   const page = String(pageName || "").toLowerCase();
   if (!hasUser) {
-    return page === LOGIN_PAGE ? "Validando sua sessao..." : "Preparando Banco Ocioso...";
+    return page === LOGIN_PAGE ? "Validando sua sessão..." : "Preparando Banco Ocioso...";
   }
 
   switch (page) {
@@ -567,14 +567,14 @@ function getAppLoadingMessage(pageName = getCurrentPageName(), hasUser = Boolean
     case "chats.html":
       return "Carregando suas conversas...";
     case "notificacoes.html":
-      return "Atualizando suas notificacoes...";
+      return "Atualizando suas notificações...";
     case "perfil.html":
     case "personalizacao.html":
       return "Montando seu perfil...";
     case "ranking.html":
       return "Buscando o ranking global...";
     case "configuracoes.html":
-      return "Aplicando suas configuracoes...";
+      return "Aplicando suas configurações...";
     default:
       return "Sincronizando sua conta...";
   }
@@ -715,10 +715,10 @@ async function init() {
       updateVaultAccessState();
       renderVaults();
       renderRanking([]);
-      resetPublicProfileUI("Faça login e execute o SQL social para usar perfis publicos completos.");
+      resetPublicProfileUI("Faça login e execute o SQL social para usar perfis públicos completos.");
       resetInboxUI("Configure o Supabase para usar chats.");
-      resetNotificationsUI("Configure o Supabase para usar notificacoes.");
-      resetSettingsUI("Configure o Supabase para usar as configuracoes da conta.", "");
+      resetNotificationsUI("Configure o Supabase para usar notificações.");
+      resetSettingsUI("Configure o Supabase para usar as configurações da conta.", "");
       updateProfileHubUI();
       return;
     }
@@ -855,8 +855,8 @@ async function init() {
         updateVaultAccessState();
         renderVaults();
       } catch (error) {
-        console.error("Falha ao atualizar a sessao do app.", error);
-        showBottomNotice("Nao foi possivel atualizar seus dados agora.");
+        console.error("Falha ao atualizar a sessão do app.", error);
+        showBottomNotice("Não foi possível atualizar seus dados agora.");
       } finally {
         if (shouldHideSessionLoading) {
           hideAppLoading();
@@ -870,7 +870,7 @@ async function init() {
     renderVaults();
   } catch (error) {
     console.error("Falha ao iniciar o Banco Ocioso.", error);
-    showBottomNotice("Nao foi possivel carregar tudo agora. Recarregue a pagina.");
+    showBottomNotice("Não foi possível carregar tudo agora. Recarregue a página.");
   } finally {
     if (shouldHideLoading) {
       hideAppLoading();
@@ -6502,7 +6502,7 @@ function getFriendlyAuthError(error) {
   }
 
   if (raw.includes("failed to fetch") || raw.includes("networkerror") || raw.includes("network request failed")) {
-    return "Falha de conexao com o Supabase. Verifique internet, URL do projeto e chave publica.";
+    return "Falha de conexão com o Supabase. Verifique internet, URL do projeto e chave pública.";
   }
 
   if (rawStatus >= 500) {

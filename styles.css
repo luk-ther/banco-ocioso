@@ -485,6 +485,8 @@ main {
 }
 
 .login-shell {
+  display: grid;
+  gap: 1rem;
   border: 1px solid var(--border-strong);
   border-radius: 22px;
   padding: 1rem;
@@ -499,6 +501,11 @@ main {
   font-family: "Sora", sans-serif;
   font-weight: 700;
   margin-bottom: 0.85rem;
+}
+
+.login-brand,
+.login-panel {
+  width: 100%;
 }
 
 .login-panel {
@@ -1496,6 +1503,15 @@ body.ui-boot main {
 .auth-form {
   display: grid;
   gap: 0.9rem;
+}
+
+.login-main .auth-form > .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.login-main .auth-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .auth-grid {
@@ -3938,19 +3954,89 @@ body.reduced-motion *::after {
   }
 
   .login-main {
-    width: calc(100% - 1rem);
-    padding: 0.9rem 0;
-    align-items: start;
+    width: min(100%, 430px);
+    min-height: calc(100dvh - var(--safe-top) - var(--safe-bottom));
+    padding: calc(var(--safe-top) + 0.8rem) 0 calc(var(--safe-bottom) + 1rem);
+    align-items: center;
+    justify-items: center;
   }
 
   .login-shell {
-    border-radius: 18px;
-    padding: 0.78rem;
+    width: 100%;
+    max-width: 430px;
+    border-radius: 20px;
+    padding: 0.92rem;
+    gap: 0.9rem;
+    align-content: center;
   }
 
   .login-panel {
-    border-radius: 14px;
-    padding: 0.85rem;
+    border-radius: 16px;
+    padding: 1rem;
+  }
+
+  .login-brand {
+    margin-bottom: 0;
+    padding-inline: 0.15rem;
+  }
+
+  .login-title {
+    max-width: 10ch;
+    font-size: clamp(1.85rem, 8vw, 2.35rem);
+    line-height: 1.02;
+  }
+
+  .login-copy {
+    margin: 0.18rem 0 0;
+    max-width: 28ch;
+    line-height: 1.5;
+  }
+
+  .auth-tabs {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+    margin: 0.15rem 0 0.05rem;
+  }
+
+  .auth-tab {
+    width: 100%;
+    justify-content: center;
+    padding: 0.72rem 0.82rem;
+  }
+
+  .login-main .auth-form {
+    gap: 0.78rem;
+  }
+
+  .login-main .auth-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .login-main label {
+    gap: 0.38rem;
+  }
+
+  .login-main input {
+    min-height: 50px;
+  }
+
+  .login-main .auth-form > .btn,
+  #authUser .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  #authUser.login-panel {
+    display: grid;
+    gap: 0.8rem;
+  }
+
+  #authUser .login-title,
+  #authUser .auth-welcome {
+    text-align: center;
   }
 
   .onboarding-slider {
