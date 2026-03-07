@@ -41,3 +41,12 @@ self.addEventListener("fetch", event => {
       .catch(() => caches.match(event.request))
   );
 });
+
+self.addEventListener("push", event => {
+  const data = event.data.json();
+
+  self.registration.showNotification(data.title, {
+    body: data.body,
+    icon: "/logo.png"
+  });
+});

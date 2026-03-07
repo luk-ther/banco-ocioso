@@ -1553,30 +1553,50 @@ body.ui-boot main {
   justify-content: center;
   flex-shrink: 0;
   will-change: filter;
-  filter: drop-shadow(0 0 8px rgba(32, 94, 255, 0.14));
-  animation: verifiedBadgeGlow 6.6s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(26, 94, 214, 0.14));
+  animation: verifiedBadgeGlow 11s linear infinite;
 }
 
 .verified-badge-check {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   width: 0.98rem;
   height: 0.98rem;
   border-radius: 50%;
-  border: 1px solid rgba(48, 116, 255, 0.46);
-  background: linear-gradient(145deg, rgba(19, 32, 84, 0.96), rgba(23, 92, 132, 0.9), rgba(34, 176, 224, 0.9));
-  background-size: 180% 180%;
-  background-position: 0% 50%;
+  border: 1px solid rgba(64, 134, 255, 0.42);
+  background: rgba(7, 12, 34, 0.96);
   color: #f4fbff;
   font-size: 0.58rem;
   font-weight: 800;
   line-height: 1;
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.04),
-    0 0 12px rgba(24, 87, 255, 0.18);
-  will-change: background-position, border-color, box-shadow;
-  animation: verifiedBadgeShift 6.6s ease-in-out infinite;
+    0 0 12px rgba(25, 109, 214, 0.16);
+  will-change: border-color, box-shadow;
+}
+
+.verified-badge-check::before {
+  content: "";
+  position: absolute;
+  inset: -38%;
+  border-radius: 50%;
+  background:
+    conic-gradient(
+      from 0deg,
+      rgba(7, 12, 34, 0.98) 0deg,
+      rgba(15, 28, 82, 0.98) 78deg,
+      rgba(16, 74, 132, 0.94) 160deg,
+      rgba(78, 220, 232, 0.92) 220deg,
+      rgba(16, 74, 132, 0.94) 292deg,
+      rgba(7, 12, 34, 0.98) 360deg
+    );
+  will-change: transform;
+  animation: verifiedBadgeSpin 8.2s linear infinite;
+  z-index: -1;
 }
 
 .verified-badge-text {
@@ -2212,33 +2232,79 @@ body.ui-boot main {
 .profile-badge[data-rarity="ultra_mythic"] {
   --badge-accent: #c9efff;
   --badge-surface: rgba(32, 128, 214, 0.16);
-  border-color: rgba(42, 100, 214, 0.44);
-  background: linear-gradient(135deg, rgba(10, 16, 44, 0.92), rgba(14, 56, 88, 0.52), rgba(16, 110, 126, 0.48));
-  background-size: 180% 180%;
-  background-position: 0% 50%;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-color: rgba(50, 112, 224, 0.4);
+  background: rgba(7, 12, 34, 0.9);
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.03),
-    0 0 14px rgba(26, 92, 210, 0.08);
-  will-change: background-position, border-color, box-shadow;
-  animation: ultraMythicBadgeShift 6.8s ease-in-out infinite;
+    0 0 14px rgba(26, 92, 210, 0.07);
+  will-change: border-color, box-shadow;
+}
+
+.profile-badge[data-rarity="ultra_mythic"]::before {
+  content: "";
+  position: absolute;
+  inset: -52%;
+  border-radius: inherit;
+  background:
+    conic-gradient(
+      from 0deg,
+      rgba(7, 12, 34, 0.96) 0deg,
+      rgba(10, 22, 56, 0.96) 68deg,
+      rgba(13, 40, 82, 0.92) 128deg,
+      rgba(12, 82, 110, 0.76) 196deg,
+      rgba(74, 212, 230, 0.58) 240deg,
+      rgba(12, 82, 110, 0.76) 290deg,
+      rgba(7, 12, 34, 0.96) 360deg
+    );
+  will-change: transform;
+  animation: ultraMythicBadgeSpin 15s linear infinite;
+  z-index: -1;
+}
+
+.profile-badge[data-rarity="ultra_mythic"] > * {
+  position: relative;
+  z-index: 1;
 }
 
 .profile-badge[data-rarity="ultra_mythic"] .profile-badge-mark {
-  border-color: rgba(56, 126, 255, 0.5);
-  background: linear-gradient(145deg, rgba(14, 24, 62, 0.98), rgba(12, 82, 110, 0.9), rgba(30, 182, 214, 0.84));
-  background-size: 180% 180%;
-  background-position: 0% 50%;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-color: rgba(68, 142, 255, 0.46);
+  background: rgba(10, 18, 52, 0.96);
   color: #f4fbff;
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 0 12px rgba(36, 171, 214, 0.18);
-  will-change: background-position, border-color, box-shadow;
-  animation: ultraMythicBadgeMarkShift 6.8s ease-in-out infinite;
+    0 0 12px rgba(36, 171, 214, 0.14);
+  will-change: border-color, box-shadow;
+}
+
+.profile-badge[data-rarity="ultra_mythic"] .profile-badge-mark::before {
+  content: "";
+  position: absolute;
+  inset: -36%;
+  border-radius: 50%;
+  background:
+    conic-gradient(
+      from 0deg,
+      rgba(10, 18, 52, 0.98) 0deg,
+      rgba(16, 32, 86, 0.98) 92deg,
+      rgba(14, 88, 122, 0.92) 170deg,
+      rgba(84, 220, 232, 0.9) 228deg,
+      rgba(14, 88, 122, 0.92) 302deg,
+      rgba(10, 18, 52, 0.98) 360deg
+    );
+  will-change: transform;
+  animation: ultraMythicBadgeMarkSpin 10.5s linear infinite;
+  z-index: -1;
 }
 
 .profile-badge[data-rarity="ultra_mythic"] .profile-badge-rarity {
   color: #c9efff;
-  animation: ultraMythicBadgeTextShift 6.8s ease-in-out infinite;
+  animation: ultraMythicBadgeTextShift 10s ease-in-out infinite alternate;
 }
 
 .profile-badge--compact {
@@ -3453,152 +3519,54 @@ select:focus {
   }
 }
 
-@keyframes verifiedBadgeShift {
-  0% {
-    border-color: rgba(38, 82, 210, 0.48);
-    background: linear-gradient(145deg, rgba(16, 24, 72, 0.98), rgba(22, 58, 116, 0.92), rgba(30, 122, 170, 0.84));
-    background-position: 0% 50%;
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.04),
-      0 0 10px rgba(22, 68, 210, 0.18);
+@keyframes verifiedBadgeSpin {
+  from {
+    transform: rotate(0deg);
   }
-  25% {
-    border-color: rgba(52, 112, 255, 0.52);
-    background: linear-gradient(145deg, rgba(18, 34, 92, 0.98), rgba(20, 82, 132, 0.9), rgba(40, 156, 194, 0.84));
-    background-position: 35% 50%;
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.05),
-      0 0 12px rgba(38, 92, 255, 0.2);
-  }
-  50% {
-    border-color: rgba(67, 164, 255, 0.56);
-    background: linear-gradient(145deg, rgba(18, 46, 102, 0.96), rgba(20, 106, 144, 0.92), rgba(53, 196, 216, 0.86));
-    background-position: 70% 50%;
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.06),
-      0 0 14px rgba(42, 144, 255, 0.22);
-  }
-  75% {
-    border-color: rgba(63, 220, 255, 0.6);
-    background: linear-gradient(145deg, rgba(20, 60, 118, 0.94), rgba(24, 128, 142, 0.9), rgba(64, 222, 238, 0.84));
-    background-position: 100% 50%;
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.06),
-      0 0 14px rgba(45, 211, 255, 0.24);
-  }
-  100% {
-    border-color: rgba(36, 164, 218, 0.52);
-    background: linear-gradient(145deg, rgba(15, 34, 88, 0.97), rgba(18, 112, 130, 0.9), rgba(36, 164, 218, 0.82));
-    background-position: 0% 50%;
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.05),
-      0 0 12px rgba(34, 176, 224, 0.2);
+  to {
+    transform: rotate(360deg);
   }
 }
 
 @keyframes verifiedBadgeGlow {
-  0%,
-  100% {
-    filter: drop-shadow(0 0 7px rgba(28, 87, 224, 0.12));
+  0% {
+    filter: drop-shadow(0 0 7px rgba(24, 88, 212, 0.1));
   }
   50% {
-    filter: drop-shadow(0 0 10px rgba(42, 214, 236, 0.18));
+    filter: drop-shadow(0 0 9px rgba(76, 208, 230, 0.16));
+  }
+  100% {
+    filter: drop-shadow(0 0 7px rgba(24, 88, 212, 0.1));
   }
 }
 
-@keyframes ultraMythicBadgeShift {
-  0% {
-    border-color: rgba(36, 88, 208, 0.44);
-    background: linear-gradient(135deg, rgba(10, 16, 44, 0.92), rgba(14, 56, 88, 0.52), rgba(16, 110, 126, 0.48));
-    background-position: 0% 50%;
-    box-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, 0.03),
-      0 0 12px rgba(26, 92, 210, 0.08);
+@keyframes ultraMythicBadgeSpin {
+  from {
+    transform: rotate(0deg);
   }
-  25% {
-    border-color: rgba(56, 122, 255, 0.5);
-    background: linear-gradient(135deg, rgba(12, 24, 60, 0.94), rgba(14, 84, 116, 0.58), rgba(24, 138, 156, 0.5));
-    background-position: 32% 50%;
-    box-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, 0.04),
-      0 0 16px rgba(38, 110, 236, 0.11);
-  }
-  50% {
-    border-color: rgba(66, 168, 255, 0.54);
-    background: linear-gradient(135deg, rgba(14, 28, 72, 0.94), rgba(14, 96, 124, 0.6), rgba(34, 178, 188, 0.54));
-    background-position: 68% 50%;
-    box-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, 0.05),
-      0 0 17px rgba(48, 146, 240, 0.12);
-  }
-  75% {
-    border-color: rgba(79, 221, 255, 0.58);
-    background: linear-gradient(135deg, rgba(14, 34, 78, 0.94), rgba(12, 110, 126, 0.6), rgba(58, 220, 228, 0.56));
-    background-position: 100% 50%;
-    box-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, 0.05),
-      0 0 18px rgba(55, 216, 236, 0.13);
-  }
-  100% {
-    border-color: rgba(36, 88, 208, 0.44);
-    background: linear-gradient(135deg, rgba(10, 16, 44, 0.92), rgba(14, 56, 88, 0.52), rgba(16, 110, 126, 0.48));
-    background-position: 0% 50%;
-    box-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, 0.03),
-      0 0 12px rgba(26, 92, 210, 0.08);
+  to {
+    transform: rotate(360deg);
   }
 }
 
-@keyframes ultraMythicBadgeMarkShift {
-  0% {
-    border-color: rgba(44, 106, 232, 0.5);
-    background: linear-gradient(145deg, rgba(14, 24, 62, 0.98), rgba(12, 82, 110, 0.9), rgba(30, 182, 214, 0.84));
-    background-position: 0% 50%;
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.05),
-      0 0 10px rgba(34, 121, 222, 0.16);
+@keyframes ultraMythicBadgeMarkSpin {
+  from {
+    transform: rotate(0deg);
   }
-  25% {
-    border-color: rgba(58, 142, 255, 0.56);
-    background: linear-gradient(145deg, rgba(14, 28, 70, 0.98), rgba(10, 98, 120, 0.92), rgba(44, 188, 216, 0.84));
-    background-position: 34% 50%;
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.05),
-      0 0 12px rgba(42, 148, 226, 0.18);
-  }
-  50% {
-    border-color: rgba(72, 224, 255, 0.62);
-    background: linear-gradient(145deg, rgba(12, 44, 86, 0.98), rgba(10, 120, 128, 0.92), rgba(66, 224, 238, 0.86));
-    background-position: 100% 50%;
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.06),
-      0 0 14px rgba(48, 220, 232, 0.22);
-  }
-  75% {
-    border-color: rgba(54, 174, 246, 0.56);
-    background: linear-gradient(145deg, rgba(12, 38, 80, 0.98), rgba(10, 104, 126, 0.92), rgba(50, 194, 226, 0.84));
-    background-position: 58% 50%;
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.05),
-      0 0 12px rgba(44, 186, 228, 0.2);
-  }
-  100% {
-    border-color: rgba(44, 106, 232, 0.5);
-    background: linear-gradient(145deg, rgba(14, 24, 62, 0.98), rgba(12, 82, 110, 0.9), rgba(30, 182, 214, 0.84));
-    background-position: 0% 50%;
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.05),
-      0 0 10px rgba(34, 121, 222, 0.16);
+  to {
+    transform: rotate(360deg);
   }
 }
 
 @keyframes ultraMythicBadgeTextShift {
-  0%,
-  100% {
+  0% {
     color: #c9efff;
   }
   50% {
-    color: #f2fbff;
+    color: #effbff;
+  }
+  100% {
+    color: #c9efff;
   }
 }
 
