@@ -3661,7 +3661,8 @@ body.reduced-motion *::after {
   }
 
   #personalizacao .profile-preview {
-    position: static;
+    position: relative;
+    top: 0;
     margin-top: 0;
   }
 
